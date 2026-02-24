@@ -1,0 +1,546 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Enjeux de la déforestation — API.GEO.Carbone{% endblock %}
+
+{% block extra_css %}
+<style>
+    .enjeux-hero {
+        background: linear-gradient(to bottom, rgba(5,46,22,0.92), rgba(20,50,30,0.88)),
+                    url('https://images.unsplash.com/photo-1605000797499-95a51c5269ae?w=1920&q=80') center/cover no-repeat;
+    }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(30px);}to{opacity:1;transform:translateY(0);} }
+    .anim-up { animation:fadeUp 0.7s ease-out both; }
+    .anim-d1 { animation:fadeUp 0.7s ease-out 0.1s both; }
+    .anim-d2 { animation:fadeUp 0.7s ease-out 0.2s both; }
+    .nav-glass { background:rgba(5,46,22,0.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.08); }
+    .danger-pulse { animation: danger-pulse 2s ease-in-out infinite; }
+    @keyframes danger-pulse { 0%,100%{opacity:0.7;} 50%{opacity:1;} }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Navbar -->
+{% with nav_style="glass" nav_active="enjeux" %}
+{% include "components/navbar.html" %}
+{% endwith %}
+
+<!-- Hero -->
+<section class="enjeux-hero pt-28 pb-20 px-6 relative">
+    <div class="max-w-5xl mx-auto text-center relative z-10">
+        <div class="anim-up inline-flex items-center gap-2 bg-red-500/20 border border-red-400/30 text-red-300 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full mb-6">
+            <i class="fas fa-exclamation-triangle danger-pulse"></i> Alerte environnementale
+        </div>
+        <h1 class="anim-d1 font-display text-4xl sm:text-5xl lg:text-6xl text-white leading-tight mb-6">
+            La déforestation menace le <span class="text-red-400">stock carbone</span> d'Oumé
+        </h1>
+        <p class="anim-d2 text-green-100/60 text-lg sm:text-xl max-w-3xl mx-auto leading-relaxed">
+            En 37 ans, les forêts classées (81 056 ha) ont subi une transformation radicale. Les forêts denses et claires
+            ont massivement reculé au profit des cultures, entraînant une perte considérable de stocks de carbone.
+        </p>
+    </div>
+</section>
+
+<!-- ====== BIOMASS / CARBON / CO2 REFERENCE TABLE ====== -->
+<section class="py-20 px-6 bg-white">
+    <div class="max-w-5xl mx-auto">
+        <h2 class="font-display text-3xl sm:text-4xl text-forest-900 text-center mb-4">Valeurs de référence</h2>
+        <p class="text-gray-500 text-center mb-12 text-lg">Biomasse, Carbone total et CO₂ équivalent par type de couvert forestier</p>
+
+        <div class="overflow-x-auto rounded-2xl border border-gray-200 shadow-sm">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-forest-50">
+                        <th class="text-left px-5 py-4 font-semibold text-forest-800">Type de couvert</th>
+                        <th class="text-right px-5 py-4 font-semibold text-forest-800">Biomasse (t/ha)</th>
+                        <th class="text-right px-5 py-4 font-semibold text-forest-800">Carbone total (tC/ha)</th>
+                        <th class="text-right px-5 py-4 font-semibold text-forest-800">CO₂ éq. (tCO₂/ha)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in nomenclatures_carbone %}
+                    <tr class="border-t border-gray-100 hover:bg-gray-50 transition-colors">
+                        <td class="px-5 py-3 flex items-center gap-3">
+                            <span class="w-4 h-4 rounded-md flex-shrink-0 border border-gray-200" style="background-color: {{ item.couleur_hex }};"></span>
+                            <span class="font-medium text-gray-800">{{ item.libelle_fr }}</span>
+                        </td>
+                        <td class="px-5 py-3 text-right font-mono text-gray-700">{{ item.biomasse_t_ha|floatformat:2 }}</td>
+                        <td class="px-5 py-3 text-right font-mono text-gray-700">{{ item.carbone_tc_ha|floatformat:2 }}</td>
+                        <td class="px-5 py-3 text-right font-mono font-bold text-forest-800">{{ item.stock_carbone_reference|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="text-xs text-gray-400 mt-4 text-center">Les types de couvert non forestiers (cacao, café, hévéa, cultures, sol nu) ont des valeurs de biomasse et carbone considérées comme nulles ou négligeables dans cette analyse.</p>
+    </div>
+</section>
+
+<!-- ====== CHARTS: Evolution superficies & stocks carbone ====== -->
+<section class="py-20 px-6 bg-gray-50">
+    <div class="max-w-6xl mx-auto">
+        <h2 class="font-display text-3xl sm:text-4xl text-forest-900 text-center mb-4">Évolution temporelle (1986 – 2023)</h2>
+        <p class="text-gray-500 text-center mb-14 text-lg">Diagrammes basés sur les données de l'API — Superficies et stocks de carbone par type de couvert</p>
+
+        <div class="grid lg:grid-cols-2 gap-8">
+            <!-- Chart 1: Évolution des superficies par type -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <h3 class="font-display text-xl text-forest-900 mb-1">Évolution des superficies par type</h3>
+                <p class="text-xs text-gray-400 mb-4">Superficie (ha) par type de couvert pour chaque année d'observation</p>
+                <div class="relative" style="height:320px;">
+                    <canvas id="chart-evo-superficie"></canvas>
+                </div>
+                <p class="text-[10px] text-gray-400 mt-3 italic">Données chargées dynamiquement depuis l'API /occupations/stats/</p>
+            </div>
+
+            <!-- Chart 2: Évolution des stocks de carbone -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <h3 class="font-display text-xl text-forest-900 mb-1">Évolution des stocks de carbone</h3>
+                <p class="text-xs text-gray-400 mb-4">Stock carbone total (tCO₂) estimé par année d'observation</p>
+                <div class="relative" style="height:320px;">
+                    <canvas id="chart-evo-carbone"></canvas>
+                </div>
+                <p class="text-[10px] text-gray-400 mt-3 italic">CO₂ éq. calculé à partir des superficies × valeurs de référence</p>
+            </div>
+
+            <!-- Chart 3: Répartition par forêt -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <h3 class="font-display text-xl text-forest-900 mb-1">Superficie des forêts classées</h3>
+                <p class="text-xs text-gray-400 mb-4">Répartition des 81 056 ha entre les 6 forêts classées</p>
+                <div class="relative" style="height:320px;">
+                    <canvas id="chart-forets"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 4: Barres biomasse/carbone/CO2 -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <h3 class="font-display text-xl text-forest-900 mb-1">Biomasse, Carbone et CO₂ par type</h3>
+                <p class="text-xs text-gray-400 mb-4">Comparaison des valeurs de référence (t/ha ou tCO₂/ha)</p>
+                <div class="relative" style="height:320px;">
+                    <canvas id="chart-biomasse"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ====== TIMELINE: 1986 → 2003 → 2023 ====== -->
+<section class="py-20 px-6 bg-white">
+    <div class="max-w-5xl mx-auto">
+        <h2 class="font-display text-3xl sm:text-4xl text-forest-900 text-center mb-4">Chronologie de la dégradation</h2>
+        <p class="text-gray-500 text-center mb-16 text-lg">L'évolution du couvert forestier dans les forêts classées du département</p>
+
+        <div class="space-y-16">
+            <!-- 1986 -->
+            <div class="grid md:grid-cols-2 gap-8 items-center">
+                <div class="bg-white rounded-3xl p-8 shadow-lg border border-gray-100">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center"><span class="font-display text-2xl text-green-800">86</span></div>
+                        <div>
+                            <h3 class="font-display text-2xl text-forest-900">1986 — L'état initial</h3>
+                            <div class="inline-flex items-center gap-1 text-green-600 text-sm font-semibold"><i class="fas fa-circle text-[6px]"></i> Couvert forestier dominant</div>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 leading-relaxed mb-5">
+                        Les forêts classées présentaient encore un couvert forestier substantiel. Les forêts denses et claires
+                        occupaient la majorité de la superficie avec des stocks de carbone élevés.
+                    </p>
+                    <div class="flex gap-3">
+                        <div class="flex-1 bg-green-50 rounded-xl p-4 text-center">
+                            <div class="font-display text-2xl text-green-800">3 187</div>
+                            <div class="text-xs text-green-600 mt-1">tCO₂/ha Forêt dense</div>
+                        </div>
+                        <div class="flex-1 bg-green-50 rounded-xl p-4 text-center">
+                            <div class="font-display text-2xl text-green-800">3 308</div>
+                            <div class="text-xs text-green-600 mt-1">tCO₂/ha Forêt claire</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gradient-to-br from-green-800 to-green-900 rounded-3xl p-8 text-white shadow-xl">
+                    <i class="fas fa-tree text-5xl text-green-300/30 mb-4"></i>
+                    <h4 class="font-display text-xl mb-3">Indicateurs 1986</h4>
+                    <ul class="space-y-3 text-green-100/80 text-sm">
+                        <li class="flex items-start gap-2"><i class="fas fa-check-circle text-green-400 mt-0.5"></i> Forêts denses et claires encore majoritaires</li>
+                        <li class="flex items-start gap-2"><i class="fas fa-check-circle text-green-400 mt-0.5"></i> Stocks de carbone au niveau maximal</li>
+                        <li class="flex items-start gap-2"><i class="fas fa-check-circle text-green-400 mt-0.5"></i> Biomasse totale : 1 804 t/ha (forêt claire)</li>
+                        <li class="flex items-start gap-2"><i class="fas fa-check-circle text-green-400 mt-0.5"></i> Biodiversité préservée</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Arrow -->
+            <div class="flex justify-center"><div class="flex flex-col items-center gap-2"><div class="w-0.5 h-8 bg-gradient-to-b from-green-400 to-amber-400"></div><div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center"><i class="fas fa-arrow-down text-amber-600"></i></div><span class="text-xs text-gray-400 font-semibold">17 ans</span></div></div>
+
+            <!-- 2003 -->
+            <div class="grid md:grid-cols-2 gap-8 items-center">
+                <div class="bg-gradient-to-br from-amber-700 to-amber-900 rounded-3xl p-8 text-white shadow-xl order-2 md:order-1">
+                    <i class="fas fa-exclamation-triangle text-5xl text-amber-300/30 mb-4"></i>
+                    <h4 class="font-display text-xl mb-3">Signaux d'alerte 2003</h4>
+                    <ul class="space-y-3 text-amber-100/80 text-sm">
+                        <li class="flex items-start gap-2"><i class="fas fa-times-circle text-amber-400 mt-0.5"></i> Expansion rapide des cultures de cacao</li>
+                        <li class="flex items-start gap-2"><i class="fas fa-times-circle text-amber-400 mt-0.5"></i> Fragmentation du couvert forestier</li>
+                        <li class="flex items-start gap-2"><i class="fas fa-times-circle text-amber-400 mt-0.5"></i> Dégradation visible des forêts denses</li>
+                        <li class="flex items-start gap-2"><i class="fas fa-times-circle text-amber-400 mt-0.5"></i> Début de la perte massive de carbone</li>
+                    </ul>
+                </div>
+                <div class="bg-white rounded-3xl p-8 shadow-lg border border-gray-100 order-1 md:order-2">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center"><span class="font-display text-2xl text-amber-800">03</span></div>
+                        <div>
+                            <h3 class="font-display text-2xl text-forest-900">2003 — Le tournant</h3>
+                            <div class="inline-flex items-center gap-1 text-amber-600 text-sm font-semibold"><i class="fas fa-circle text-[6px]"></i> Déforestation accélérée</div>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 leading-relaxed mb-5">L'agriculture extensive — cacao, café, hévéa — a pénétré les forêts classées. Les forêts dégradées et jachères remplacent les formations forestières intactes.</p>
+                    <div class="flex gap-3">
+                        <div class="flex-1 bg-amber-50 rounded-xl p-4 text-center"><div class="font-display text-2xl text-amber-800">1 947</div><div class="text-xs text-amber-600 mt-1">tCO₂/ha Forêt dégradée</div></div>
+                        <div class="flex-1 bg-amber-50 rounded-xl p-4 text-center"><div class="font-display text-2xl text-amber-800">2 906</div><div class="text-xs text-amber-600 mt-1">tCO₂/ha Jachère</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Arrow -->
+            <div class="flex justify-center"><div class="flex flex-col items-center gap-2"><div class="w-0.5 h-8 bg-gradient-to-b from-amber-400 to-red-500"></div><div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center"><i class="fas fa-arrow-down text-red-600"></i></div><span class="text-xs text-gray-400 font-semibold">20 ans</span></div></div>
+
+            <!-- 2023 -->
+            <div class="grid md:grid-cols-2 gap-8 items-center">
+                <div class="bg-white rounded-3xl p-8 shadow-lg border-2 border-red-200">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center"><span class="font-display text-2xl text-red-800">23</span></div>
+                        <div>
+                            <h3 class="font-display text-2xl text-forest-900">2023 — L'urgence</h3>
+                            <div class="inline-flex items-center gap-1 text-red-600 text-sm font-semibold"><i class="fas fa-circle text-[6px]"></i> Situation critique</div>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 leading-relaxed mb-5">La quasi-totalité des forêts classées a été convertie en cultures. Les sols nus et cultures herbacées, avec un stock de carbone nul, occupent des surfaces considérables.</p>
+                    <div class="flex gap-3">
+                        <div class="flex-1 bg-red-50 rounded-xl p-4 text-center"><div class="font-display text-2xl text-red-800">0</div><div class="text-xs text-red-600 mt-1">tCO₂/ha Cultures / Sol nu</div></div>
+                        <div class="flex-1 bg-red-50 rounded-xl p-4 text-center"><div class="font-display text-2xl text-red-800">−98%</div><div class="text-xs text-red-600 mt-1">Perte de carbone</div></div>
+                    </div>
+                </div>
+                <div class="bg-gradient-to-br from-red-700 to-red-900 rounded-3xl p-8 text-white shadow-xl">
+                    <i class="fas fa-fire text-5xl text-red-300/30 mb-4"></i>
+                    <h4 class="font-display text-xl mb-3">Conséquences 2023</h4>
+                    <ul class="space-y-3 text-red-100/80 text-sm">
+                        <li class="flex items-start gap-2"><i class="fas fa-skull-crossbones text-red-400 mt-0.5"></i> Forêts denses quasi disparues</li>
+                        <li class="flex items-start gap-2"><i class="fas fa-skull-crossbones text-red-400 mt-0.5"></i> Perte massive de biodiversité</li>
+                        <li class="flex items-start gap-2"><i class="fas fa-skull-crossbones text-red-400 mt-0.5"></i> Effondrement des stocks de carbone</li>
+                        <li class="flex items-start gap-2"><i class="fas fa-skull-crossbones text-red-400 mt-0.5"></i> Érosion des sols et crises hydriques</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ====== CARBON STOCK BARS ====== -->
+<section class="py-20 px-6 bg-forest-950 text-white">
+    <div class="max-w-5xl mx-auto">
+        <h2 class="font-display text-3xl sm:text-4xl text-center mb-4">Stock de carbone par type de couvert</h2>
+        <p class="text-green-300/50 text-center mb-14">Valeurs de référence en tCO₂/ha</p>
+        <div class="space-y-3">
+            {% for item in nomenclatures %}
+            <div class="bg-white/5 rounded-xl p-4 flex items-center gap-4 hover:bg-white/10 transition-colors">
+                <div class="w-6 h-6 rounded-lg flex-shrink-0 border border-white/20" style="background-color: {{ item.couleur_hex }};"></div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-white">{{ item.libelle_fr }}</span>
+                        <span class="text-sm font-mono text-green-300">{{ item.stock_carbone_reference|floatformat:0 }} tCO₂/ha</span>
+                    </div>
+                    <div class="w-full bg-white/10 rounded-full h-2.5 overflow-hidden">
+                        <div class="h-full rounded-full transition-all duration-1000" style="width: {% widthratio item.stock_carbone_reference 3308 100 %}%; background-color: {{ item.couleur_hex }};"></div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- ====== CAUSES & SOLUTIONS ====== -->
+<section class="py-20 px-6 bg-white">
+    <div class="max-w-5xl mx-auto">
+        <div class="grid md:grid-cols-2 gap-16">
+            <div>
+                <div class="flex items-center gap-3 mb-8"><div class="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center"><i class="fas fa-bolt text-red-600 text-xl"></i></div><h2 class="font-display text-3xl text-forest-900">Causes principales</h2></div>
+                <div class="space-y-4">
+                    <div class="bg-red-50 rounded-2xl p-5 border border-red-100"><h4 class="font-semibold text-red-900 mb-1">Agriculture extensive</h4><p class="text-red-700/70 text-sm">Expansion incontrôlée des plantations de cacao, café et hévéa à l'intérieur des forêts classées.</p></div>
+                    <div class="bg-red-50 rounded-2xl p-5 border border-red-100"><h4 class="font-semibold text-red-900 mb-1">Pression démographique</h4><p class="text-red-700/70 text-sm">Croissance de la population poussant vers les zones forestières.</p></div>
+                    <div class="bg-red-50 rounded-2xl p-5 border border-red-100"><h4 class="font-semibold text-red-900 mb-1">Exploitation illicite du bois</h4><p class="text-red-700/70 text-sm">Coupe illégale sans plan de gestion durable.</p></div>
+                    <div class="bg-red-50 rounded-2xl p-5 border border-red-100"><h4 class="font-semibold text-red-900 mb-1">Faible application des lois</h4><p class="text-red-700/70 text-sm">Moyens insuffisants pour surveiller les limites des forêts classées.</p></div>
+                </div>
+            </div>
+            <div>
+                <div class="flex items-center gap-3 mb-8"><div class="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center"><i class="fas fa-seedling text-green-600 text-xl"></i></div><h2 class="font-display text-3xl text-forest-900">Pistes de solutions</h2></div>
+                <div class="space-y-4">
+                    <div class="bg-green-50 rounded-2xl p-5 border border-green-100"><h4 class="font-semibold text-green-900 mb-1">Reboisement stratégique</h4><p class="text-green-700/70 text-sm">Programmes ciblés avec des espèces à fort stock carbone.</p></div>
+                    <div class="bg-green-50 rounded-2xl p-5 border border-green-100"><h4 class="font-semibold text-green-900 mb-1">Agroforesterie durable</h4><p class="text-green-700/70 text-sm">Intégration d'arbres dans les systèmes de culture.</p></div>
+                    <div class="bg-green-50 rounded-2xl p-5 border border-green-100"><h4 class="font-semibold text-green-900 mb-1">Mécanismes REDD+</h4><p class="text-green-700/70 text-sm">Valorisation économique du carbone forestier.</p></div>
+                    <div class="bg-green-50 rounded-2xl p-5 border border-green-100"><h4 class="font-semibold text-green-900 mb-1">Surveillance géospatiale</h4><p class="text-green-700/70 text-sm">Outils comme API.GEO.Carbone pour le suivi en temps réel.</p></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ====== L'APPORT DE LA GÉOMATIQUE & API.GEO.CARBONE ====== -->
+<section class="py-20 px-6 bg-gradient-to-b from-forest-50 to-white">
+    <div class="max-w-5xl mx-auto">
+        <div class="text-center mb-14">
+            <div class="inline-flex items-center gap-2 bg-forest-100 border border-forest-200 text-forest-700 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full mb-5">
+                <i class="fas fa-satellite-dish"></i> Apport technologique
+            </div>
+            <h2 class="font-display text-3xl sm:text-4xl text-forest-900 mb-4">La géomatique au service de la forêt</h2>
+            <p class="text-gray-500 text-lg max-w-3xl mx-auto">Comment API.GEO.Carbone et les technologies géospatiales contribuent à la résolution des problèmes de déforestation</p>
+        </div>
+
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+            <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4"><i class="fas fa-satellite text-blue-600 text-xl"></i></div>
+                <h3 class="font-display text-lg text-forest-900 mb-2">Télédétection satellitaire</h3>
+                <p class="text-gray-500 text-sm leading-relaxed">Analyse d'images Landsat et Sentinel-2 pour cartographier l'occupation du sol sur 3 périodes (1986, 2003, 2023) avec une classification supervisée.</p>
+            </div>
+            <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-4"><i class="fas fa-database text-green-600 text-xl"></i></div>
+                <h3 class="font-display text-lg text-forest-900 mb-2">SIG & Base géospatiale</h3>
+                <p class="text-gray-500 text-sm leading-relaxed">PostGIS pour stocker, interroger et analyser les données géographiques. Relations spatiales entre forêts, occupation du sol et infrastructures.</p>
+            </div>
+            <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4"><i class="fas fa-code text-purple-600 text-xl"></i></div>
+                <h3 class="font-display text-lg text-forest-900 mb-2">API REST géospatiale</h3>
+                <p class="text-gray-500 text-sm leading-relaxed">Django REST Framework + GIS pour exposer les données en GeoJSON. Filtrage dynamique par année, forêt et type de couvert.</p>
+            </div>
+            <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center mb-4"><i class="fas fa-map text-amber-600 text-xl"></i></div>
+                <h3 class="font-display text-lg text-forest-900 mb-2">WebMapping interactif</h3>
+                <p class="text-gray-500 text-sm leading-relaxed">Leaflet.js avec rendu Canvas pour la visualisation fluide de milliers de polygones. Couches superposables et curseur temporel.</p>
+            </div>
+            <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                <div class="w-12 h-12 bg-rose-100 rounded-xl flex items-center justify-center mb-4"><i class="fas fa-brain text-rose-600 text-xl"></i></div>
+                <h3 class="font-display text-lg text-forest-900 mb-2">NLP & Chat-to-Map</h3>
+                <p class="text-gray-500 text-sm leading-relaxed">Moteur de traitement du langage naturel pour interroger les données en français : « Montre la forêt dense à TENÉ en 2003 ».</p>
+            </div>
+            <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                <div class="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center mb-4"><i class="fas fa-file-alt text-teal-600 text-xl"></i></div>
+                <h3 class="font-display text-lg text-forest-900 mb-2">Rapports automatisés</h3>
+                <p class="text-gray-500 text-sm leading-relaxed">Génération de rapports HTML détaillés avec statistiques, évolution temporelle et recommandations, téléchargeables directement.</p>
+            </div>
+        </div>
+
+        <!-- Benefits summary -->
+        <div class="bg-forest-900 rounded-3xl p-8 text-white">
+            <div class="flex items-start gap-5">
+                <div class="w-16 h-16 bg-green-500/20 rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-leaf text-green-400 text-2xl"></i>
+                </div>
+                <div>
+                    <h3 class="font-display text-2xl mb-3">Apport bénéfique d'API.GEO.Carbone</h3>
+                    <p class="text-green-100/70 leading-relaxed mb-4">
+                        En combinant la télédétection, les systèmes d'information géographique et le développement web, API.GEO.Carbone offre un outil concret et accessible pour :
+                    </p>
+                    <div class="grid sm:grid-cols-2 gap-3">
+                        <div class="bg-white/10 rounded-xl p-4 border border-white/10">
+                            <i class="fas fa-eye text-green-400 mb-2"></i>
+                            <p class="text-sm text-green-100/80"><strong class="text-white">Visualiser</strong> l'étendue réelle de la déforestation sur 37 ans, rendant visible un phénomène souvent sous-estimé.</p>
+                        </div>
+                        <div class="bg-white/10 rounded-xl p-4 border border-white/10">
+                            <i class="fas fa-calculator text-green-400 mb-2"></i>
+                            <p class="text-sm text-green-100/80"><strong class="text-white">Quantifier</strong> les pertes de carbone en tCO₂ par type de couvert, fournissant des données exploitables pour les politiques REDD+.</p>
+                        </div>
+                        <div class="bg-white/10 rounded-xl p-4 border border-white/10">
+                            <i class="fas fa-bullseye text-green-400 mb-2"></i>
+                            <p class="text-sm text-green-100/80"><strong class="text-white">Cibler</strong> les zones prioritaires de reboisement grâce à l'analyse spatiale fine des 81 056 ha de forêts classées.</p>
+                        </div>
+                        <div class="bg-white/10 rounded-xl p-4 border border-white/10">
+                            <i class="fas fa-users text-green-400 mb-2"></i>
+                            <p class="text-sm text-green-100/80"><strong class="text-white">Sensibiliser</strong> les décideurs et communautés locales grâce à une interface intuitive et des rapports accessibles.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="py-16 px-6 bg-gradient-to-r from-forest-800 to-forest-900 text-center">
+    <div class="max-w-2xl mx-auto">
+        <h2 class="font-display text-3xl sm:text-4xl text-white mb-4">Explorez les données vous-même</h2>
+        <p class="text-green-200/60 mb-8">Carte interactive, statistiques en temps réel et rapports détaillés.</p>
+        <a href="/carte/" class="inline-flex items-center gap-3 bg-green-500 hover:bg-green-400 text-white font-semibold px-10 py-4 rounded-2xl transition-all text-lg shadow-2xl shadow-green-500/30">
+            <i class="fas fa-globe-africa"></i> Ouvrir la carte interactive
+        </a>
+    </div>
+</section>
+
+{% include "components/footer.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ====== ENJEUX PAGE CHARTS ======
+document.addEventListener('DOMContentLoaded', async function() {
+    const API_BASE = '/api/v1';
+
+    async function fetchStats(annee) {
+        try {
+            const res = await fetch(`${API_BASE}/occupations/stats/?annee=${annee}`);
+            if (!res.ok) {
+                console.warn(`Stats ${annee}: HTTP ${res.status}`);
+                return null;
+            }
+            const data = await res.json();
+            console.log(`Stats ${annee}:`, data.resultats?.length || 0, 'types,',
+                'sup=', Math.round(data.totaux?.superficie_ha || 0), 'ha');
+            return data;
+        } catch(e) {
+            console.warn(`Stats ${annee} error:`, e);
+            return null;
+        }
+    }
+
+    // Fetch all 3 years
+    const [s86, s03, s23] = await Promise.all([
+        fetchStats(1986), fetchStats(2003), fetchStats(2023)
+    ]);
+
+    // Helper: check if stats have actual data
+    function hasData(s) {
+        return s && s.resultats && s.resultats.length > 0;
+    }
+
+    // ---- Chart 1: Évolution des superficies (grouped bar) ----
+    const ctx1 = document.getElementById('chart-evo-superficie');
+    if (ctx1) {
+        if (hasData(s86) || hasData(s03) || hasData(s23)) {
+            // Merge labels from all years
+            const allLabels = new Set();
+            [s86, s03, s23].forEach(s => {
+                if (s && s.resultats) {
+                    s.resultats.forEach(r => {
+                        allLabels.add(r.nomenclature__libelle_fr || r.nomenclature__code || 'Inconnu');
+                    });
+                }
+            });
+            const labels = [...allLabels];
+
+            function getSuperficie(stats, label) {
+                if (!stats || !stats.resultats) return 0;
+                const r = stats.resultats.find(x =>
+                    (x.nomenclature__libelle_fr || x.nomenclature__code) === label
+                );
+                return r ? Math.round(r.total_superficie_ha || 0) : 0;
+            }
+
+            new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: '1986', data: labels.map(l => getSuperficie(s86, l)), backgroundColor: '#22c55e' },
+                        { label: '2003', data: labels.map(l => getSuperficie(s03, l)), backgroundColor: '#f59e0b' },
+                        { label: '2023', data: labels.map(l => getSuperficie(s23, l)), backgroundColor: '#ef4444' },
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } },
+                    scales: {
+                        x: { ticks: { font: { size: 9 }, maxRotation: 45 } },
+                        y: { title: { display: true, text: 'Superficie (ha)', font: { size: 11 } } }
+                    }
+                }
+            });
+        } else {
+            ctx1.parentElement.innerHTML = '<div class="flex items-center justify-center h-full text-gray-400 text-sm"><i class="fas fa-info-circle mr-2"></i>Données non disponibles — importez les occupations du sol</div>';
+        }
+    }
+
+    // ---- Chart 2: Évolution du stock carbone total (line) ----
+    const ctx2 = document.getElementById('chart-evo-carbone');
+    if (ctx2) {
+        if (hasData(s86) || hasData(s03) || hasData(s23)) {
+            const carboneData = [
+                (s86 && s86.totaux) ? (s86.totaux.carbone_tco2 || 0) : 0,
+                (s03 && s03.totaux) ? (s03.totaux.carbone_tco2 || 0) : 0,
+                (s23 && s23.totaux) ? (s23.totaux.carbone_tco2 || 0) : 0,
+            ];
+            new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: ['1986', '2003', '2023'],
+                    datasets: [{
+                        label: 'Stock carbone total (tCO₂)',
+                        data: carboneData,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239,68,68,0.1)',
+                        fill: true, tension: 0.3,
+                        pointRadius: 6,
+                        pointBackgroundColor: ['#22c55e', '#f59e0b', '#ef4444'],
+                        borderWidth: 3,
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            title: { display: true, text: 'tCO₂', font: { size: 11 } },
+                            beginAtZero: true,
+                        }
+                    }
+                }
+            });
+        } else {
+            ctx2.parentElement.innerHTML = '<div class="flex items-center justify-center h-full text-gray-400 text-sm"><i class="fas fa-info-circle mr-2"></i>Données non disponibles — importez les occupations du sol</div>';
+        }
+    }
+
+    // ---- Chart 3: Forêts classées (doughnut — static data) ----
+    const ctx3 = document.getElementById('chart-forets');
+    if (ctx3) {
+        new Chart(ctx3, {
+            type: 'doughnut',
+            data: {
+                labels: ['TENÉ (29 549 ha)', 'DOKA (10 945 ha)', 'SANGOUÉ (27 360 ha)', 'LAHOUDA (3 300 ha)', 'ZOUÉKÉ I (6 825 ha)', 'ZOUÉKÉ II (3 077 ha)'],
+                datasets: [{
+                    data: [29549, 10945, 27360, 3300, 6825, 3077],
+                    backgroundColor: ['#006400', '#32CD32', '#9ACD32', '#FFA500', '#DA70D6', '#8B4513'],
+                    borderWidth: 2, borderColor: '#fff',
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 8 } } }
+            }
+        });
+    }
+
+    // ---- Chart 4: Biomasse / Carbone / CO2 (horizontal bar — static data) ----
+    const ctx4 = document.getElementById('chart-biomasse');
+    if (ctx4) {
+        const types = ['Forêt dense', 'Forêt claire', 'Forêt dégradée', 'Jachère'];
+        new Chart(ctx4, {
+            type: 'bar',
+            data: {
+                labels: types,
+                datasets: [
+                    { label: 'Biomasse (t/ha)', data: [1739.16, 1804.16, 1062.09, 1671.98], backgroundColor: '#22c55e' },
+                    { label: 'Carbone (tC/ha)', data: [869.10, 902.08, 531.04, 792.66], backgroundColor: '#3b82f6' },
+                    { label: 'CO₂ éq. (tCO₂/ha)', data: [3186.70, 3307.62, 1947.15, 2906.42], backgroundColor: '#f59e0b' },
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: { legend: { position: 'top', labels: { font: { size: 10 } } } },
+                scales: {
+                    x: { title: { display: true, text: 'Valeur', font: { size: 10 } } },
+                    y: { ticks: { font: { size: 11 } } }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

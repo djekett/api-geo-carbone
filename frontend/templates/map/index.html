@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Carte interactive — API.GEO.Carbone{% endblock %}
+
+{% block head_leaflet %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/map.css' %}" />
+{% endblock %}
+
+{% block content %}
+<div id="app" class="relative w-full h-screen overflow-hidden">
+
+    <!-- ===== SIDEBAR ===== -->
+    <div id="sidebar" class="absolute top-0 left-0 h-full w-80 bg-white shadow-2xl z-[1000] transition-transform duration-300 flex flex-col overflow-hidden lg:translate-x-0 -translate-x-full">
+        <!-- Header -->
+        <div class="p-4 bg-gradient-to-r from-forest-900 to-forest-800 text-white flex items-center justify-between">
+            <a href="/" class="flex items-center gap-2.5 group">
+                <div class="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center border border-green-400/30">
+                    <i class="fas fa-leaf text-green-400 text-sm"></i>
+                </div>
+                <div>
+                    <h1 class="text-base font-display tracking-tight">API.GEO.Carbone</h1>
+                    <p class="text-[10px] text-green-300/60 -mt-0.5">Département d'Oumé</p>
+                </div>
+            </a>
+            <button id="sidebar-close" class="lg:hidden text-white/60 hover:text-white p-1"><i class="fas fa-times text-lg"></i></button>
+        </div>
+
+        <!-- AI Search -->
+        <div class="p-3 border-b border-gray-100 bg-gray-50/50">
+            <div class="relative">
+                <input type="text" id="ai-search" placeholder="Ex: Forêt dense à TENÉ en 2003..."
+                    class="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white" />
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                <div id="ai-loading" class="hidden absolute right-3 top-1/2 -translate-y-1/2"><i class="fas fa-spinner fa-spin text-green-600 text-sm"></i></div>
+            </div>
+            <div id="ai-results-count" class="hidden text-xs text-gray-400 mt-1 px-1"></div>
+            <div id="ai-tags" class="flex flex-wrap gap-1 mt-1.5"></div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex border-b border-gray-100 text-sm bg-white">
+            <button class="sidebar-tab active flex-1 py-2.5 text-center font-medium text-sm" data-tab="layers"><i class="fas fa-layer-group mr-1 text-xs"></i> Couches</button>
+            <button class="sidebar-tab flex-1 py-2.5 text-center font-medium text-gray-400 hover:text-green-700 text-sm" data-tab="legend"><i class="fas fa-palette mr-1 text-xs"></i> Légende</button>
+            <button class="sidebar-tab flex-1 py-2.5 text-center font-medium text-gray-400 hover:text-green-700 text-sm" data-tab="stats"><i class="fas fa-chart-bar mr-1 text-xs"></i> Stats</button>
+            <button class="sidebar-tab flex-1 py-2.5 text-center font-medium text-gray-400 hover:text-green-700 text-sm" data-tab="report"><i class="fas fa-file-alt mr-1 text-xs"></i> Rapport</button>
+        </div>
+
+        <!-- Tab Contents -->
+        <div class="flex-1 overflow-y-auto">
+            <!-- Layers -->
+            <div id="tab-layers" class="tab-content p-3 space-y-4">
+                <div>
+                    <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Fonds de carte</div>
+                    <div class="space-y-0.5">
+                        <label class="flex items-center gap-2.5 text-sm cursor-pointer p-2 rounded-lg hover:bg-gray-50"><input type="radio" name="baseLayer" value="osm" checked class="accent-green-600"> OpenStreetMap</label>
+                        <label class="flex items-center gap-2.5 text-sm cursor-pointer p-2 rounded-lg hover:bg-gray-50"><input type="radio" name="baseLayer" value="satellite" class="accent-green-600"> Satellite ESRI</label>
+                        <label class="flex items-center gap-2.5 text-sm cursor-pointer p-2 rounded-lg hover:bg-gray-50"><input type="radio" name="baseLayer" value="terrain" class="accent-green-600"> Terrain</label>
+                    </div>
+                </div>
+                <div>
+                    <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Couches thématiques</div>
+                    <div class="space-y-0.5">
+                        <label class="flex items-center gap-2.5 text-sm cursor-pointer p-2 rounded-lg hover:bg-gray-50"><input type="checkbox" id="layer-forets" checked class="accent-green-600 rounded"> <span class="flex-1">Forêts classées</span> <span class="w-3 h-3 rounded-sm" style="background:#1a5e1a;"></span></label>
+                        <label class="flex items-center gap-2.5 text-sm cursor-pointer p-2 rounded-lg hover:bg-gray-50"><input type="checkbox" id="layer-occupation" checked class="accent-green-600 rounded"> <span class="flex-1">Occupation du sol</span> <span class="w-3 h-3 rounded-sm" style="background:linear-gradient(135deg,#006400,#32CD32,#FFFF00);"></span></label>
+                        <label class="flex items-center gap-2.5 text-sm cursor-pointer p-2 rounded-lg hover:bg-gray-50"><input type="checkbox" id="layer-limites" class="accent-green-600 rounded"> <span class="flex-1">Limites administratives</span> <span class="w-3 h-3 rounded-sm border-2 border-purple-500 bg-purple-100"></span></label>
+                        <label class="flex items-center gap-2.5 text-sm cursor-pointer p-2 rounded-lg hover:bg-gray-50"><input type="checkbox" id="layer-placettes" class="accent-green-600 rounded"> <span class="flex-1">Placettes terrain</span> <span class="w-3 h-3 rounded-full bg-red-500"></span></label>
+                        <label class="flex items-center gap-2.5 text-sm cursor-pointer p-2 rounded-lg hover:bg-gray-50"><input type="checkbox" id="layer-routes" class="accent-green-600 rounded"> <span class="flex-1">Routes</span> <span class="w-4 h-0.5 bg-amber-700 rounded"></span></label>
+                        <label class="flex items-center gap-2.5 text-sm cursor-pointer p-2 rounded-lg hover:bg-gray-50"><input type="checkbox" id="layer-hydro" class="accent-green-600 rounded"> <span class="flex-1">Hydrographie</span> <span class="w-4 h-0.5 bg-blue-500 rounded"></span></label>
+                        <label class="flex items-center gap-2.5 text-sm cursor-pointer p-2 rounded-lg hover:bg-gray-50"><input type="checkbox" id="layer-localites" class="accent-green-600 rounded"> <span class="flex-1">Localités</span> <span class="w-3 h-3 rounded-full bg-amber-400 border border-gray-500"></span></label>
+                    </div>
+                </div>
+                <div>
+                    <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Forêt sélectionnée</div>
+                    <select id="foret-select" class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                        <option value="">Toutes les forêts</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div id="tab-legend" class="tab-content p-3 hidden">
+                <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Types de couverture</div>
+                <div id="legend-list" class="space-y-1.5"></div>
+            </div>
+
+            <!-- Stats -->
+            <div id="tab-stats" class="tab-content p-3 hidden">
+                <div id="stats-summary" class="space-y-2.5 mb-5">
+                    <div class="bg-gradient-to-r from-green-50 to-green-100/50 rounded-xl p-4 border border-green-200/50">
+                        <div class="text-[10px] text-green-600 font-semibold uppercase tracking-wider">Superficie totale</div>
+                        <div id="stat-superficie" class="text-2xl font-display text-green-900 mt-0.5">-- ha</div>
+                    </div>
+                    <div class="bg-gradient-to-r from-blue-50 to-blue-100/50 rounded-xl p-4 border border-blue-200/50">
+                        <div class="text-[10px] text-blue-600 font-semibold uppercase tracking-wider">Stock carbone total</div>
+                        <div id="stat-carbone" class="text-2xl font-display text-blue-900 mt-0.5">-- tCO₂</div>
+                    </div>
+                    <div class="bg-gradient-to-r from-amber-50 to-amber-100/50 rounded-xl p-4 border border-amber-200/50">
+                        <div class="text-[10px] text-amber-600 font-semibold uppercase tracking-wider">Nombre de polygones</div>
+                        <div id="stat-polygones" class="text-2xl font-display text-amber-900 mt-0.5">--</div>
+                    </div>
+                </div>
+                <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Répartition par type</div>
+                <canvas id="chart-superficie" height="200"></canvas>
+                <div class="mt-5">
+                    <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Stock carbone</div>
+                    <canvas id="chart-carbone" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- Report -->
+            <div id="tab-report" class="tab-content p-3 hidden">
+                <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Générer un rapport</div>
+                <div class="space-y-3">
+                    <div><label class="text-xs font-semibold text-gray-600 block mb-1">Titre du rapport</label><input type="text" id="report-title" value="Rapport d'analyse — Forêts classées d'Oumé" class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-green-500"></div>
+                    <div><label class="text-xs font-semibold text-gray-600 block mb-1">Auteur</label><input type="text" id="report-author" placeholder="Votre nom" class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-green-500"></div>
+                    <div><label class="text-xs font-semibold text-gray-600 block mb-1">Année</label>
+                        <select id="report-year" class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-green-500">
+                            <option value="1986">1986</option><option value="2003">2003</option><option value="2023" selected>2023</option>
+                        </select>
+                    </div>
+                    <div><label class="text-xs font-semibold text-gray-600 block mb-1">Sections</label>
+                        <div class="space-y-1.5">
+                            <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked class="report-section accent-green-600 rounded" value="context"> Contexte</label>
+                            <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked class="report-section accent-green-600 rounded" value="stats"> Statistiques</label>
+                            <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked class="report-section accent-green-600 rounded" value="carbon"> Carbone</label>
+                            <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked class="report-section accent-green-600 rounded" value="evolution"> Évolution</label>
+                            <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked class="report-section accent-green-600 rounded" value="recommendations"> Recommandations</label>
+                        </div>
+                    </div>
+                    <div><label class="text-xs font-semibold text-gray-600 block mb-1">Notes</label><textarea id="report-notes" rows="3" placeholder="Observations..." class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-green-500 resize-none"></textarea></div>
+                    <button id="btn-generate-report" class="w-full bg-forest-800 hover:bg-forest-700 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"><i class="fas fa-file-pdf"></i> Générer le rapport HTML</button>
+                    <div id="report-status" class="hidden text-xs text-center py-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar Toggle (mobile) -->
+    <button id="sidebar-toggle" class="absolute top-4 left-4 z-[1001] bg-white shadow-lg rounded-xl p-2.5 lg:hidden hover:bg-gray-50 border border-gray-100"><i class="fas fa-bars text-gray-600"></i></button>
+
+    <!-- ===== MAP ===== -->
+    <div id="map" class="w-full h-full"></div>
+
+    <!-- ===== TIME SLIDER ===== -->
+    <div id="time-slider" class="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] bg-white/95 backdrop-blur-md shadow-2xl rounded-2xl px-5 py-3 flex items-center gap-3 border border-gray-200/50">
+        <button id="time-play" class="w-9 h-9 rounded-xl bg-forest-100 text-forest-700 hover:bg-forest-200 flex items-center justify-center transition-colors"><i class="fas fa-play text-sm"></i></button>
+        <div class="flex items-center rounded-xl overflow-hidden border border-gray-200">
+            <button class="time-btn px-5 py-2 text-sm font-bold" data-year="1986">1986</button>
+            <button class="time-btn px-5 py-2 text-sm font-bold" data-year="2003">2003</button>
+            <button class="time-btn px-5 py-2 text-sm font-bold" data-year="2023">2023</button>
+        </div>
+        <span id="time-label" class="text-xs text-gray-400 font-medium min-w-[55px]">1986</span>
+    </div>
+
+    <!-- Nav (top-right) -->
+    <div class="absolute top-4 right-4 z-[1000] flex items-center gap-2">
+        <a href="/" class="bg-white/90 backdrop-blur-sm shadow-lg rounded-xl px-3 py-2 text-sm text-gray-600 hover:text-forest-700 hover:bg-white transition-all border border-gray-200/50 flex items-center gap-1.5"><i class="fas fa-home text-xs"></i> Accueil</a>
+        <a href="/enjeux/" class="bg-white/90 backdrop-blur-sm shadow-lg rounded-xl px-3 py-2 text-sm text-gray-600 hover:text-forest-700 hover:bg-white transition-all border border-gray-200/50 flex items-center gap-1.5"><i class="fas fa-fire-alt text-xs"></i> Enjeux</a>
+    </div>
+
+    <!-- Chat Toggle -->
+    <button id="chat-toggle" class="absolute bottom-6 right-6 z-[1000] bg-forest-700 text-white shadow-xl rounded-2xl w-12 h-12 flex items-center justify-center hover:bg-forest-600 transition-all hover:scale-105"><i class="fas fa-robot text-lg"></i></button>
+
+    <!-- Chat Panel -->
+    <div id="chat-panel" class="hidden absolute bottom-20 right-6 z-[1000] w-96 max-h-[500px] bg-white shadow-2xl rounded-2xl overflow-hidden flex flex-col border border-gray-200/50">
+        <div class="p-3 bg-gradient-to-r from-forest-900 to-forest-800 text-white flex items-center justify-between">
+            <span class="text-sm font-semibold"><i class="fas fa-robot mr-1.5"></i> Chat-to-Map IA</span>
+            <button id="chat-close" class="text-green-200/60 hover:text-white"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-3 space-y-3 min-h-[200px]">
+            <div class="text-sm text-gray-500 bg-gray-50 p-3 rounded-xl">
+                Posez une question sur les forêts :
+                <ul class="mt-2 space-y-1.5 text-xs">
+                    <li class="cursor-pointer hover:text-green-700 chat-example">« Montre les zones de forêt dense à DOKA en 2003 »</li>
+                    <li class="cursor-pointer hover:text-green-700 chat-example">« Superficie de forêt claire à SANGOUÉ en 2023 ? »</li>
+                    <li class="cursor-pointer hover:text-green-700 chat-example">« Compare TENÉ entre 1986 et 2023 »</li>
+                </ul>
+            </div>
+        </div>
+        <div class="p-3 border-t border-gray-100">
+            <div class="flex gap-2">
+                <input type="text" id="chat-input" placeholder="Votre question..." class="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-green-500" />
+                <button id="chat-send" class="bg-forest-700 text-white px-4 py-2 rounded-xl hover:bg-forest-600 text-sm"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="hidden absolute inset-0 z-[2000] bg-white/80 backdrop-blur-sm flex items-center justify-center">
+        <div class="text-center">
+            <div class="loading-spinner mx-auto mb-4"></div>
+            <p class="text-sm text-gray-500 font-medium" id="loading-text">Chargement...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Report Modal -->
+<div id="report-modal" class="hidden fixed inset-0 z-[3000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+        <div class="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+            <h3 class="font-display text-lg text-forest-900"><i class="fas fa-file-alt mr-2 text-forest-600"></i>Aperçu du rapport</h3>
+            <div class="flex items-center gap-2">
+                <button id="report-download" class="bg-forest-700 hover:bg-forest-600 text-white text-sm px-4 py-2 rounded-xl flex items-center gap-1.5"><i class="fas fa-download"></i> Télécharger</button>
+                <button id="report-modal-close" class="text-gray-400 hover:text-gray-600 p-2"><i class="fas fa-times text-lg"></i></button>
+            </div>
+        </div>
+        <div id="report-content" class="flex-1 overflow-y-auto p-8"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{% static 'js/map/api.js' %}"></script>
+<script src="{% static 'js/map/layers.js' %}"></script>
+<script src="{% static 'js/map/choropleth.js' %}"></script>
+<script src="{% static 'js/map/timeSlider.js' %}"></script>
+<script src="{% static 'js/map/sidebar.js' %}"></script>
+<script src="{% static 'js/map/legend.js' %}"></script>
+<script src="{% static 'js/map/stats.js' %}"></script>
+<script src="{% static 'js/map/popup.js' %}"></script>
+<script src="{% static 'js/map/report.js' %}"></script>
+<script src="{% static 'js/chat/chatPanel.js' %}"></script>
+<script src="{% static 'js/map/app.js' %}"></script>
+{% endblock %}

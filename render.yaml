@@ -1,0 +1,31 @@
+# ===== API.GEO.Carbone — Render Blueprint =====
+# Déployer via : https://render.com/deploy
+
+databases:
+  - name: api-geo-carbone-db
+    plan: free
+    databaseName: api_geo_carbone
+    postgresMajorVersion: "16"
+    ipAllowList: []
+    # PostGIS sera activé via la migration Django ou manuellement
+
+services:
+  - type: web
+    name: api-geo-carbone
+    runtime: python
+    plan: free
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: "3.11.6"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: api-geo-carbone-db
+          property: connectionString
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com"

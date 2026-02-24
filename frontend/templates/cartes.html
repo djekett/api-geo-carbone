@@ -1,0 +1,653 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Cartes thématiques — API.GEO.Carbone{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cartes-hero {
+        background: linear-gradient(to bottom, rgba(5,46,22,0.94), rgba(10,40,28,0.90)),
+                    url('https://images.unsplash.com/photo-1524661135-423995f22d0b?w=1920&q=80') center/cover no-repeat;
+    }
+    .nav-glass { background:rgba(5,46,22,0.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.08); }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(30px);}to{opacity:1;transform:translateY(0);} }
+    .anim-up { animation:fadeUp 0.7s ease-out both; }
+    .anim-d1 { animation:fadeUp 0.7s ease-out 0.1s both; }
+    .anim-d2 { animation:fadeUp 0.7s ease-out 0.2s both; }
+
+    /* Lightbox */
+    .lightbox-overlay { display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:2rem;cursor:zoom-out; }
+    .lightbox-overlay.active { display:flex; }
+    .lightbox-overlay img { max-width:95vw;max-height:90vh;object-fit:contain;border-radius:0.75rem;box-shadow:0 25px 60px rgba(0,0,0,0.5); }
+    .lightbox-close { position:absolute;top:1.5rem;right:1.5rem;color:white;font-size:1.5rem;cursor:pointer;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.1);border-radius:50%;transition:background 0.2s; }
+    .lightbox-close:hover { background:rgba(255,255,255,0.25); }
+
+    .map-card { transition:transform 0.3s,box-shadow 0.3s; }
+    .map-card:hover { transform:translateY(-4px);box-shadow:0 20px 40px rgba(0,0,0,0.12); }
+    .map-card img { cursor:zoom-in; }
+
+    .section-divider { height:4px;background:linear-gradient(90deg,transparent,#22c55e,transparent);border-radius:2px;opacity:0.3; }
+
+    /* Tab system */
+    .tab-btn { transition:all 0.3s; }
+    .tab-btn.active { background:linear-gradient(135deg,#166534,#15803d);color:white;box-shadow:0 4px 15px rgba(22,101,52,0.3); }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+
+    /* Scroll reveal */
+    .reveal { opacity:0;transform:translateY(30px);transition:opacity 0.7s ease,transform 0.7s ease; }
+    .reveal.visible { opacity:1;transform:translateY(0); }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Navbar -->
+{% with nav_style="glass" nav_active="cartes" %}
+{% include "components/navbar.html" %}
+{% endwith %}
+
+<!-- Hero -->
+<section class="cartes-hero pt-28 pb-20 px-6 relative">
+    <div class="max-w-5xl mx-auto text-center relative z-10">
+        <div class="anim-up inline-flex items-center gap-2 bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full mb-6">
+            <i class="fas fa-map-marked-alt"></i> Atlas cartographique
+        </div>
+        <h1 class="anim-d1 font-display text-4xl sm:text-5xl lg:text-6xl text-white leading-tight mb-6">
+            Cartes <span class="text-green-400">thématiques</span>
+        </h1>
+        <p class="anim-d2 text-green-100/60 text-lg sm:text-xl max-w-3xl mx-auto leading-relaxed">
+            Ensemble des cartes produites pour l'analyse de l'occupation des sols, la dynamique forestière
+            et la spatialisation du stock de carbone dans les forêts classées du département d'Oumé.
+        </p>
+    </div>
+</section>
+
+<!-- Quick navigation tabs -->
+<section class="sticky top-[60px] z-40 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
+    <div class="max-w-6xl mx-auto px-6 py-3 flex gap-2 overflow-x-auto scrollbar-hide">
+        <button onclick="switchTab('ocs')" class="tab-btn active text-sm font-semibold px-4 py-2 rounded-xl whitespace-nowrap bg-gray-100 text-gray-600">
+            <i class="fas fa-layer-group mr-1.5"></i>Occupation du sol
+        </button>
+        <button onclick="switchTab('placettes')" class="tab-btn text-sm font-semibold px-4 py-2 rounded-xl whitespace-nowrap bg-gray-100 text-gray-600">
+            <i class="fas fa-map-pin mr-1.5"></i>Placettes
+        </button>
+        <button onclick="switchTab('carbone')" class="tab-btn text-sm font-semibold px-4 py-2 rounded-xl whitespace-nowrap bg-gray-100 text-gray-600">
+            <i class="fas fa-cloud mr-1.5"></i>Stock carbone
+        </button>
+        <button onclick="switchTab('dynamique')" class="tab-btn text-sm font-semibold px-4 py-2 rounded-xl whitespace-nowrap bg-gray-100 text-gray-600">
+            <i class="fas fa-exchange-alt mr-1.5"></i>Dynamique
+        </button>
+        <button onclick="switchTab('forets')" class="tab-btn text-sm font-semibold px-4 py-2 rounded-xl whitespace-nowrap bg-gray-100 text-gray-600">
+            <i class="fas fa-tree mr-1.5"></i>Forêts individuelles
+        </button>
+    </div>
+</section>
+
+<!-- ============================================ -->
+<!-- TAB 1 : Occupation du sol (OCS)              -->
+<!-- ============================================ -->
+<div id="tab-ocs" class="tab-panel active">
+    <section class="py-16 px-6 bg-white">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-14">
+                <div class="inline-flex items-center gap-2 bg-forest-50 text-forest-700 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full mb-4">
+                    <i class="fas fa-layer-group"></i> Cartes d'occupation du sol
+                </div>
+                <h2 class="font-display text-3xl sm:text-4xl text-forest-900 mb-4">Évolution de l'occupation du sol (1986 – 2023)</h2>
+                <p class="text-gray-500 max-w-3xl mx-auto text-lg">
+                    Ces trois cartes montrent l'évolution du couvert végétal et de l'utilisation des terres
+                    dans les six forêts classées du département d'Oumé sur une période de 37 ans.
+                </p>
+            </div>
+
+            <!-- OCS 1986 -->
+            <div class="reveal map-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-10">
+                <div class="md:flex">
+                    <div class="md:w-3/5 bg-gray-50 p-4 flex items-center justify-center">
+                        <img src="{% static 'img/cartes/OCS_1986.png' %}" alt="Occupation du sol 1986" class="rounded-xl w-full" onclick="openLightbox(this.src)">
+                    </div>
+                    <div class="md:w-2/5 p-8 flex flex-col justify-center">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="bg-forest-100 text-forest-700 text-xs font-bold px-3 py-1.5 rounded-lg">1986</span>
+                            <h3 class="font-display text-2xl text-forest-900">Occupation du sol — 1986</h3>
+                        </div>
+                        <div class="space-y-3 text-gray-600 leading-relaxed">
+                            <p>
+                                En 1986, les forêts classées du département d'Oumé présentaient encore un couvert forestier
+                                relativement bien conservé. La <strong class="text-forest-700">forêt dense</strong> et la
+                                <strong class="text-forest-700">forêt claire</strong> dominaient largement le paysage,
+                                en particulier dans les massifs de Sangoué, Lahouda et Tené.
+                            </p>
+                            <p>
+                                Les zones de <strong class="text-amber-600">jachère/reboisement jeune</strong> étaient déjà visibles,
+                                signe d'une pression anthropique naissante. Les cultures de cacao et de café restaient encore
+                                marginales à l'intérieur des limites des forêts classées.
+                            </p>
+                            <p class="text-sm text-gray-400 italic">
+                                <i class="fas fa-info-circle mr-1"></i> Cette carte constitue l'état de référence pour l'analyse diachronique.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OCS 2003 -->
+            <div class="reveal map-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-10">
+                <div class="md:flex md:flex-row-reverse">
+                    <div class="md:w-3/5 bg-gray-50 p-4 flex items-center justify-center">
+                        <img src="{% static 'img/cartes/OCS_2003.png' %}" alt="Occupation du sol 2003" class="rounded-xl w-full" onclick="openLightbox(this.src)">
+                    </div>
+                    <div class="md:w-2/5 p-8 flex flex-col justify-center">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="bg-amber-100 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg">2003</span>
+                            <h3 class="font-display text-2xl text-forest-900">Occupation du sol — 2003</h3>
+                        </div>
+                        <div class="space-y-3 text-gray-600 leading-relaxed">
+                            <p>
+                                Entre 1986 et 2003, on observe une <strong class="text-red-600">dégradation significative</strong>
+                                du couvert forestier. Les forêts denses ont considérablement reculé, laissant place à des
+                                formations dégradées et des zones de cultures.
+                            </p>
+                            <p>
+                                L'apparition massive de <strong class="text-purple-600">cultures annuelles/herbacées</strong> (en violet)
+                                et de <strong class="text-red-700">café</strong> témoigne de l'infiltration agricole dans les forêts classées.
+                                La forêt de Sangoué montre une fragmentation particulièrement marquée dans sa partie centrale.
+                            </p>
+                            <p>
+                                Cette période correspond à la crise socio-politique ivoirienne, durant laquelle le contrôle
+                                des forêts classées s'est considérablement affaibli.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OCS 2023 -->
+            <div class="reveal map-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-10">
+                <div class="md:flex">
+                    <div class="md:w-3/5 bg-gray-50 p-4 flex items-center justify-center">
+                        <img src="{% static 'img/cartes/OCS_2023.png' %}" alt="Occupation du sol 2023" class="rounded-xl w-full" onclick="openLightbox(this.src)">
+                    </div>
+                    <div class="md:w-2/5 p-8 flex flex-col justify-center">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="bg-red-100 text-red-700 text-xs font-bold px-3 py-1.5 rounded-lg">2023</span>
+                            <h3 class="font-display text-2xl text-forest-900">Occupation du sol — 2023</h3>
+                        </div>
+                        <div class="space-y-3 text-gray-600 leading-relaxed">
+                            <p>
+                                En 2023, le paysage forestier a profondément changé. La <strong class="text-forest-700">forêt dense</strong>
+                                ne subsiste plus que sous forme d'îlots fragmentés. La <strong class="text-green-500">forêt dégradée</strong>
+                                et les <strong class="text-yellow-600">jachères</strong> dominent désormais l'ensemble des massifs.
+                            </p>
+                            <p>
+                                La comparaison avec 1986 révèle une perte dramatique du couvert forestier originel.
+                                Les forêts de Tené et Doka, à l'est, montrent une prédominance marquée de la forêt dégradée
+                                et des jachères, signe d'une exploitation intensive et d'une régénération insuffisante.
+                            </p>
+                            <p>
+                                Néanmoins, certaines zones de <strong class="text-forest-600">forêt claire</strong> persistent,
+                                notamment dans les parties centrales de Sangoué et Lahouda, offrant un espoir de restauration ciblée.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OCS synthesis -->
+            <div class="reveal bg-gradient-to-br from-forest-50 to-emerald-50 rounded-2xl border border-forest-200 p-8 mt-6">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 bg-forest-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-chart-line text-forest-600 text-xl"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-display text-xl text-forest-900 mb-2">Synthèse de l'évolution 1986 → 2023</h4>
+                        <p class="text-gray-600 leading-relaxed">
+                            L'analyse diachronique sur 37 ans révèle une tendance générale à la dégradation des forêts classées
+                            du département d'Oumé. Le recul de la forêt dense au profit des formations dégradées, des jachères
+                            et des cultures (cacao, café, hévéa) traduit une pression anthropique croissante. La période 1986–2003
+                            a été la plus destructrice, avec une accélération de la déforestation liée à l'instabilité politique.
+                            Entre 2003 et 2023, la dynamique est plus nuancée avec des zones de régénération partielle côtoyant
+                            des zones toujours en déclin.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- ============================================ -->
+<!-- TAB 2 : Placettes                            -->
+<!-- ============================================ -->
+<div id="tab-placettes" class="tab-panel">
+    <section class="py-16 px-6 bg-white">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-14">
+                <div class="inline-flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full mb-4">
+                    <i class="fas fa-map-pin"></i> Dispositif d'échantillonnage
+                </div>
+                <h2 class="font-display text-3xl sm:text-4xl text-forest-900 mb-4">Carte des placettes d'inventaire</h2>
+                <p class="text-gray-500 max-w-3xl mx-auto text-lg">
+                    Localisation des placettes de terrain utilisées pour l'estimation de la biomasse et du stock de carbone.
+                </p>
+            </div>
+
+            <div class="reveal map-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="bg-gray-50 p-4 flex items-center justify-center">
+                    <img src="{% static 'img/cartes/carte_des_placettes.png' %}" alt="Carte des placettes" class="rounded-xl max-w-4xl w-full" onclick="openLightbox(this.src)">
+                </div>
+                <div class="p-8">
+                    <h3 class="font-display text-2xl text-forest-900 mb-4">Interprétation</h3>
+                    <div class="space-y-3 text-gray-600 leading-relaxed">
+                        <p>
+                            Cette carte présente la distribution spatiale des <strong class="text-blue-600">placettes d'inventaire forestier</strong>
+                            (carrés blancs) au sein des six forêts classées, superposées à l'occupation du sol de 2023.
+                            Les placettes ont été positionnées de manière à couvrir l'ensemble des types de couvert végétal présents :
+                            forêt dense, forêt claire, forêt dégradée, jachère/reboisement jeune, et zones de cultures.
+                        </p>
+                        <p>
+                            Le plan d'échantillonnage adopte une répartition systématique couvrant les différentes
+                            strates forestières de chaque massif. Cette stratégie permet d'estimer avec précision la biomasse
+                            aérienne et souterraine, et par conséquent le stock de carbone de chaque type de couvert.
+                        </p>
+                        <p>
+                            On observe que les placettes sont distribuées de façon homogène dans les grands massifs (Sangoué, Tené),
+                            tandis que les forêts plus petites (Zouéké I) disposent d'un nombre réduit mais proportionnel de points d'échantillonnage.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- ============================================ -->
+<!-- TAB 3 : Stock carbone                        -->
+<!-- ============================================ -->
+<div id="tab-carbone" class="tab-panel">
+    <section class="py-16 px-6 bg-white">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-14">
+                <div class="inline-flex items-center gap-2 bg-red-50 text-red-700 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full mb-4">
+                    <i class="fas fa-cloud"></i> Spatialisation du carbone
+                </div>
+                <h2 class="font-display text-3xl sm:text-4xl text-forest-900 mb-4">Carte du stock de carbone</h2>
+                <p class="text-gray-500 max-w-3xl mx-auto text-lg">
+                    Distribution spatiale du stock de carbone (en tCO₂/ha) selon le type de couvert forestier.
+                </p>
+            </div>
+
+            <div class="reveal map-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="bg-gray-50 p-4 flex items-center justify-center">
+                    <img src="{% static 'img/cartes/Carte_de_spatialisation_du_stock_carbone.png' %}" alt="Spatialisation du stock carbone" class="rounded-xl max-w-4xl w-full" onclick="openLightbox(this.src)">
+                </div>
+                <div class="p-8">
+                    <h3 class="font-display text-2xl text-forest-900 mb-4">Interprétation</h3>
+                    <div class="space-y-3 text-gray-600 leading-relaxed">
+                        <p>
+                            La carte de spatialisation du stock de carbone utilise une échelle colorimétrique allant du
+                            <strong class="text-yellow-600">jaune</strong> (faible stock) au <strong class="text-red-900">brun foncé</strong>
+                            (stock élevé). Quatre classes de stock sont distinguées :
+                        </p>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 my-4">
+                            <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-center">
+                                <div class="font-display text-xl text-yellow-700">1 947</div>
+                                <div class="text-xs text-gray-500">tCO₂/ha · Jachère</div>
+                            </div>
+                            <div class="bg-orange-50 border border-orange-200 rounded-xl p-3 text-center">
+                                <div class="font-display text-xl text-orange-700">2 906</div>
+                                <div class="text-xs text-gray-500">tCO₂/ha · Forêt dégradée</div>
+                            </div>
+                            <div class="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
+                                <div class="font-display text-xl text-red-700">3 187</div>
+                                <div class="text-xs text-gray-500">tCO₂/ha · Forêt dense</div>
+                            </div>
+                            <div class="bg-red-100 border border-red-300 rounded-xl p-3 text-center">
+                                <div class="font-display text-xl text-red-900">3 308</div>
+                                <div class="text-xs text-gray-500">tCO₂/ha · Forêt claire</div>
+                            </div>
+                        </div>
+                        <p>
+                            Les zones les plus riches en carbone (rouge foncé et brun) correspondent aux reliques de
+                            <strong class="text-forest-700">forêt claire</strong> et <strong class="text-forest-700">forêt dense</strong>,
+                            principalement concentrées dans les parties centrales de Sangoué et les secteurs préservés de Tené.
+                        </p>
+                        <p>
+                            À l'inverse, les vastes plages jaunes et orangées, correspondant aux jachères et forêts dégradées,
+                            témoignent de la perte considérable de capacité de séquestration du carbone. La forêt de Tené
+                            présente un gradient très marqué entre son cœur encore préservé et ses marges fortement dégradées.
+                        </p>
+                        <p>
+                            Cette carte est un outil essentiel pour <strong class="text-forest-700">cibler les actions de restauration</strong>
+                            et prioriser les zones où la reforestation aurait le plus grand impact sur la séquestration du CO₂.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- ============================================ -->
+<!-- TAB 4 : Dynamique par forêt                  -->
+<!-- ============================================ -->
+<div id="tab-dynamique" class="tab-panel">
+    <section class="py-16 px-6 bg-white">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-14">
+                <div class="inline-flex items-center gap-2 bg-purple-50 text-purple-700 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full mb-4">
+                    <i class="fas fa-exchange-alt"></i> Analyse diachronique
+                </div>
+                <h2 class="font-display text-3xl sm:text-4xl text-forest-900 mb-4">Dynamique de l'occupation du sol par forêt</h2>
+                <p class="text-gray-500 max-w-3xl mx-auto text-lg">
+                    Comparaison triptyque (1986, 2003, 2023) de l'occupation du sol pour chaque forêt classée,
+                    mettant en évidence les transformations du couvert végétal.
+                </p>
+            </div>
+
+            <!-- Dynamique DOKA -->
+            <div class="reveal map-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-10">
+                <div class="bg-gray-50 p-4 flex items-center justify-center">
+                    <img src="{% static 'img/cartes/Dynamique_DOKA.png' %}" alt="Dynamique DOKA" class="rounded-xl max-w-5xl w-full" onclick="openLightbox(this.src)">
+                </div>
+                <div class="p-8">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="bg-forest-100 text-forest-700 text-xs font-bold px-3 py-1.5 rounded-lg">DOKA</span>
+                        <h3 class="font-display text-xl text-forest-900">Dynamique de la forêt classée de Doka</h3>
+                    </div>
+                    <div class="space-y-3 text-gray-600 leading-relaxed">
+                        <p>
+                            La forêt classée de Doka illustre une dynamique de dégradation progressive.
+                            En <strong>1986</strong>, le couvert était dominé par la forêt claire et des zones de jachère,
+                            avec déjà peu de forêt dense.
+                            En <strong>2003</strong>, une infiltration massive de cultures (café, cacao, cultures annuelles)
+                            a fragmenté le couvert, avec l'apparition visible de taches roses (hévéa) et violettes (cultures annuelles).
+                        </p>
+                        <p>
+                            En <strong>2023</strong>, la tendance s'est inversée partiellement : les cultures annuelles ont reculé
+                            au profit d'une mosaïque de forêt dégradée et de forêt claire, suggérant une régénération naturelle
+                            dans certaines parcelles abandonnées. Toutefois, la présence d'orange (cacao) reste significative.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamique LAHOUDA -->
+            <div class="reveal map-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-10">
+                <div class="bg-gray-50 p-4 flex items-center justify-center">
+                    <img src="{% static 'img/cartes/Dynamique_LAHOUDA.png' %}" alt="Dynamique LAHOUDA" class="rounded-xl max-w-5xl w-full" onclick="openLightbox(this.src)">
+                </div>
+                <div class="p-8">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="bg-forest-100 text-forest-700 text-xs font-bold px-3 py-1.5 rounded-lg">LAHOUDA</span>
+                        <h3 class="font-display text-xl text-forest-900">Dynamique de la forêt classée de Lahouda</h3>
+                    </div>
+                    <div class="space-y-3 text-gray-600 leading-relaxed">
+                        <p>
+                            Lahouda montre un schéma classique de dégradation forestière en Côte d'Ivoire.
+                            Le triptyque révèle le passage d'un couvert encore relativement forestier en <strong>1986</strong>
+                            (dominance de forêt dense et claire) à un paysage très fragmenté en <strong>2003</strong>,
+                            avec l'intrusion marquée de cultures de café (rouge).
+                        </p>
+                        <p>
+                            En <strong>2023</strong>, la forêt de Lahouda affiche un couvert dominé par la forêt claire et dégradée.
+                            Les cultures semblent avoir régressé par rapport à 2003, ce qui pourrait indiquer un début de
+                            régénération ou un abandon de certaines parcelles agricoles au sein du massif.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamique SANGOUE -->
+            <div class="reveal map-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-10">
+                <div class="bg-gray-50 p-4 flex items-center justify-center">
+                    <img src="{% static 'img/cartes/Dynamique_SANGOUE.png' %}" alt="Dynamique SANGOUE" class="rounded-xl max-w-5xl w-full" onclick="openLightbox(this.src)">
+                </div>
+                <div class="p-8">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="bg-forest-100 text-forest-700 text-xs font-bold px-3 py-1.5 rounded-lg">SANGOUÉ</span>
+                        <h3 class="font-display text-xl text-forest-900">Dynamique de la forêt classée de Sangoué</h3>
+                    </div>
+                    <div class="space-y-3 text-gray-600 leading-relaxed">
+                        <p>
+                            Sangoué est le plus grand massif forestier étudié. En <strong>1986</strong>, il présentait un couvert
+                            forestier diversifié avec une bonne proportion de forêt dense, en particulier dans sa partie sud.
+                            Les jachères et la forêt dégradée occupaient déjà les marges nord et est.
+                        </p>
+                        <p>
+                            En <strong>2003</strong>, la dégradation s'est intensifiée avec une forte intrusion de cultures
+                            (café, cultures annuelles) dans la partie centrale. Le morcellement du couvert dense est très visible.
+                            En <strong>2023</strong>, le massif est dominé par un mélange de forêt claire et dégradée, avec
+                            des reliques de forêt dense principalement au sud. Cette forêt reste cependant le massif le plus
+                            riche en biodiversité et en stock de carbone de la zone d'étude.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamique TENE -->
+            <div class="reveal map-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-10">
+                <div class="bg-gray-50 p-4 flex items-center justify-center">
+                    <img src="{% static 'img/cartes/Dynamique_TENE.png' %}" alt="Dynamique TENE" class="rounded-xl max-w-4xl w-full" onclick="openLightbox(this.src)">
+                </div>
+                <div class="p-8">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="bg-forest-100 text-forest-700 text-xs font-bold px-3 py-1.5 rounded-lg">TENÉ</span>
+                        <h3 class="font-display text-xl text-forest-900">Dynamique de la forêt classée de Tené</h3>
+                    </div>
+                    <div class="space-y-3 text-gray-600 leading-relaxed">
+                        <p>
+                            La forêt classée de Tené, située au nord du département, présente une dynamique de dégradation
+                            contrastée. En <strong>1986</strong>, le nord du massif abritait encore de vastes étendues de
+                            forêt dense, tandis que le sud était déjà marqué par la jachère.
+                        </p>
+                        <p>
+                            En <strong>2003</strong>, le couvert dense a reculé massivement. On note l'apparition de zones de
+                            sol nu et de cultures. Le recul de la forêt dense est particulièrement sévère dans la partie est.
+                            En <strong>2023</strong>, la forêt de Tené est un patchwork de forêt dégradée, de jachère et de
+                            quelques poches de forêt dense, témoignant d'un écosystème sous forte pression mais où des noyaux
+                            de conservation subsistent encore.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamique ZOUEKE -->
+            <div class="reveal map-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-10">
+                <div class="bg-gray-50 p-4 flex items-center justify-center">
+                    <img src="{% static 'img/cartes/Dynamique_ZOUEKE_1_et_2.png' %}" alt="Dynamique ZOUEKE 1 et 2" class="rounded-xl max-w-4xl w-full" onclick="openLightbox(this.src)">
+                </div>
+                <div class="p-8">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="bg-forest-100 text-forest-700 text-xs font-bold px-3 py-1.5 rounded-lg">ZOUÉKÉ I & II</span>
+                        <h3 class="font-display text-xl text-forest-900">Dynamique des forêts classées de Zouéké I et II</h3>
+                    </div>
+                    <div class="space-y-3 text-gray-600 leading-relaxed">
+                        <p>
+                            Les forêts classées de Zouéké I (allongée, à l'ouest) et Zouéké II (plus compacte, à l'est)
+                            montrent des trajectoires distinctes. En <strong>1986</strong>, les deux massifs étaient
+                            caractérisés par une forêt claire dominante avec des poches de forêt dense et de jachère.
+                        </p>
+                        <p>
+                            En <strong>2003</strong>, Zouéké II a subi une dégradation sévère avec l'apparition de vastes
+                            zones de cultures (cacao, café, cultures annuelles), tandis que Zouéké I a mieux résisté.
+                            En <strong>2023</strong>, les deux forêts présentent un couvert dominé par la jachère et la
+                            forêt dégradée, avec très peu de forêt dense résiduelle. La situation de Zouéké II est
+                            particulièrement préoccupante avec une forte dominance de jachères.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- ============================================ -->
+<!-- TAB 5 : Forêts individuelles                 -->
+<!-- ============================================ -->
+<div id="tab-forets" class="tab-panel">
+    <section class="py-16 px-6 bg-white">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-14">
+                <div class="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full mb-4">
+                    <i class="fas fa-tree"></i> Portraits de forêts
+                </div>
+                <h2 class="font-display text-3xl sm:text-4xl text-forest-900 mb-4">Évolution individuelle de chaque forêt</h2>
+                <p class="text-gray-500 max-w-3xl mx-auto text-lg">
+                    Cartes détaillées montrant l'évolution de l'occupation du sol (1986, 2003, 2023)
+                    pour chaque forêt classée avec une classification simplifiée.
+                </p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- Forêt de DOKA -->
+                <div class="reveal map-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="bg-gray-50 p-3 flex items-center justify-center">
+                        <img src="{% static 'img/cartes/Foert_de_DOKA.jpg' %}" alt="Forêt de DOKA" class="rounded-xl w-full" onclick="openLightbox(this.src)">
+                    </div>
+                    <div class="p-6">
+                        <h3 class="font-display text-lg text-forest-900 mb-2">Forêt classée de Doka</h3>
+                        <p class="text-gray-600 text-sm leading-relaxed">
+                            La transition est nette : en 1986, la forêt dense (vert foncé) couvrait la majorité du massif.
+                            En 2003, elle a cédé la place à la forêt claire et dégradée. En 2023, la jachère (jaune clair)
+                            et les sols nus (blanc) témoignent d'une pression continue, malgré quelques zones de régénération.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Forêt de LAHOUDA -->
+                <div class="reveal map-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="bg-gray-50 p-3 flex items-center justify-center">
+                        <img src="{% static 'img/cartes/Foert_de_LAHOUDA.jpg' %}" alt="Forêt de LAHOUDA" class="rounded-xl w-full" onclick="openLightbox(this.src)">
+                    </div>
+                    <div class="p-6">
+                        <h3 class="font-display text-lg text-forest-900 mb-2">Forêt classée de Lahouda</h3>
+                        <p class="text-gray-600 text-sm leading-relaxed">
+                            Lahouda suit un schéma similaire à Doka mais avec une meilleure conservation relative.
+                            La partie sud-ouest conserve des noyaux de forêt dense même en 2023. La transition vers
+                            la forêt claire est progressive, ce qui laisse entrevoir un potentiel de restauration si
+                            les pressions agricoles sont contenues.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Forêt de SANGOUE -->
+                <div class="reveal map-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="bg-gray-50 p-3 flex items-center justify-center">
+                        <img src="{% static 'img/cartes/Foert_de_SANGOUE.jpg' %}" alt="Forêt de SANGOUE" class="rounded-xl w-full" onclick="openLightbox(this.src)">
+                    </div>
+                    <div class="p-6">
+                        <h3 class="font-display text-lg text-forest-900 mb-2">Forêt classée de Sangoué</h3>
+                        <p class="text-gray-600 text-sm leading-relaxed">
+                            Sangoué, le plus vaste massif, montre la même dynamique de recul de la forêt dense mais à plus
+                            grande échelle. La partie sud conserve les plus grands fragments de forêt dense de toute la zone
+                            d'étude. L'enjeu principal est de protéger ce noyau de biodiversité tout en gérant la mosaïque
+                            agricole-forestière des marges.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Forêt de TENE -->
+                <div class="reveal map-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="bg-gray-50 p-3 flex items-center justify-center">
+                        <img src="{% static 'img/cartes/Foert_de_TENE.jpg' %}" alt="Forêt de TENE" class="rounded-xl w-full" onclick="openLightbox(this.src)">
+                    </div>
+                    <div class="p-6">
+                        <h3 class="font-display text-lg text-forest-900 mb-2">Forêt classée de Tené</h3>
+                        <p class="text-gray-600 text-sm leading-relaxed">
+                            Tené a connu l'une des dégradations les plus sévères. Le passage de 1986 à 2023 montre
+                            la quasi-disparition de la forêt dense au profit d'un mélange de forêt dégradée et de jachère.
+                            La partie est du massif, qui bordait les zones agricoles, a été la plus affectée.
+                            Des actions de reboisement urgentes sont nécessaires pour stopper l'érosion du couvert.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Forêt de ZOUEKE -->
+                <div class="reveal map-card bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden md:col-span-2 md:max-w-2xl md:mx-auto">
+                    <div class="bg-gray-50 p-3 flex items-center justify-center">
+                        <img src="{% static 'img/cartes/Foert_de_ZOUEKE.jpg' %}" alt="Forêt de ZOUEKE" class="rounded-xl w-full" onclick="openLightbox(this.src)">
+                    </div>
+                    <div class="p-6">
+                        <h3 class="font-display text-lg text-forest-900 mb-2">Forêts classées de Zouéké I & II</h3>
+                        <p class="text-gray-600 text-sm leading-relaxed">
+                            Les deux massifs de Zouéké confirment la tendance générale observée dans le département.
+                            Zouéké I, de forme allongée, a perdu l'essentiel de son couvert dense mais conserve une
+                            forêt claire exploitable. Zouéké II, plus compact, est dominé par la jachère en 2023,
+                            signe d'une exploitation intensive qui a laissé peu de place à la forêt naturelle.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- CTA final -->
+<section class="py-16 px-6 bg-forest-950">
+    <div class="max-w-4xl mx-auto text-center">
+        <h2 class="font-display text-3xl text-white mb-4">Explorez les données en détail</h2>
+        <p class="text-green-100/60 text-lg mb-8 max-w-2xl mx-auto">
+            Consultez la carte interactive pour naviguer dans les données géospatiales,
+            comparer les périodes et analyser les statistiques par zone.
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-4">
+            <a href="/carte/" class="inline-flex items-center gap-2 bg-green-500 hover:bg-green-400 text-white font-semibold px-8 py-4 rounded-2xl transition-all text-lg shadow-2xl shadow-green-500/30">
+                <i class="fas fa-globe-africa"></i> Carte interactive
+            </a>
+            <a href="/enjeux/" class="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-semibold px-8 py-4 rounded-2xl transition-all border border-white/15 text-lg">
+                <i class="fas fa-fire-alt"></i> Voir les enjeux
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Footer -->
+{% include "components/footer.html" %}
+
+<!-- Lightbox -->
+<div id="lightbox" class="lightbox-overlay" onclick="closeLightbox()">
+    <div class="lightbox-close"><i class="fas fa-times"></i></div>
+    <img id="lightbox-img" src="" alt="Carte agrandie">
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Tab system
+function switchTab(tabId) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + tabId).classList.add('active');
+    event.currentTarget.classList.add('active');
+    // Trigger reveal for newly visible elements
+    setTimeout(() => revealElements(), 100);
+    window.scrollTo({ top: 280, behavior: 'smooth' });
+}
+
+// Lightbox
+function openLightbox(src) {
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('lightbox').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('active');
+    document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+// Scroll reveal
+function revealElements() {
+    document.querySelectorAll('.reveal').forEach(el => {
+        const rect = el.getBoundingClientRect();
+        if (rect.top < window.innerHeight - 60) {
+            el.classList.add('visible');
+        }
+    });
+}
+window.addEventListener('scroll', revealElements);
+window.addEventListener('load', revealElements);
+</script>
+{% endblock %}

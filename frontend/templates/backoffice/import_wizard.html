@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}API.GEO.Carbone - Import Shapefile{% endblock %}
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+    <header class="bg-green-800 text-white shadow">
+        <div class="max-w-4xl mx-auto px-4 py-4">
+            <h1 class="text-xl font-bold"><i class="fas fa-file-import mr-2"></i>Import de Shapefile</h1>
+            <p class="text-xs text-green-200">Assistant d'import en 4 etapes</p>
+        </div>
+    </header>
+    <main class="max-w-4xl mx-auto px-4 py-8">
+        <div class="flex items-center justify-center mb-8 text-sm">
+            <div class="step-indicator active" data-step="1">1. Upload</div>
+            <div class="w-12 h-0.5 bg-gray-300 mx-2"></div>
+            <div class="step-indicator" data-step="2">2. Apercu</div>
+            <div class="w-12 h-0.5 bg-gray-300 mx-2"></div>
+            <div class="step-indicator" data-step="3">3. Mapping</div>
+            <div class="w-12 h-0.5 bg-gray-300 mx-2"></div>
+            <div class="step-indicator" data-step="4">4. Import</div>
+        </div>
+        <div id="step-1" class="step-content bg-white rounded-xl shadow p-6">
+            <h2 class="text-lg font-semibold mb-4">Etape 1 : Upload du fichier Shapefile</h2>
+            <p class="text-sm text-gray-500 mb-4">Selectionnez un fichier .zip contenant les composants du Shapefile (.shp, .shx, .dbf, .prj)</p>
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3"></i>
+                <p class="text-sm text-gray-500">Glissez votre fichier ici ou</p>
+                <input type="file" id="file-input" accept=".zip" class="hidden" />
+                <button onclick="document.getElementById('file-input').click()" class="mt-2 bg-green-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-800">Parcourir...</button>
+                <p class="text-xs text-gray-400 mt-2">Taille max: 50 Mo</p>
+            </div>
+        </div>
+        <div id="step-2" class="step-content hidden bg-white rounded-xl shadow p-6">
+            <h2 class="text-lg font-semibold mb-4">Etape 2 : Apercu</h2>
+            <div id="preview-map" class="h-64 rounded-lg border mb-4"></div>
+            <div id="preview-info" class="text-sm text-gray-600"></div>
+            <div class="flex justify-between mt-4">
+                <button class="prev-btn bg-gray-200 px-4 py-2 rounded-lg text-sm" onclick="showStep(1)">Precedent</button>
+                <button class="next-btn bg-green-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-800" onclick="showStep(3)">Suivant</button>
+            </div>
+        </div>
+        <div id="step-3" class="step-content hidden bg-white rounded-xl shadow p-6">
+            <h2 class="text-lg font-semibold mb-4">Etape 3 : Mapping</h2>
+            <div class="space-y-3 mb-4">
+                <div><label class="text-sm font-medium text-gray-700">Foret cible</label>
+                <select id="import-foret" class="w-full border rounded px-3 py-2 text-sm mt-1"><option value="">Detection automatique</option></select></div>
+                <div><label class="text-sm font-medium text-gray-700">Annee</label>
+                <select id="import-annee" class="w-full border rounded px-3 py-2 text-sm mt-1"><option value="1986">1986</option><option value="2003">2003</option><option value="2023" selected>2023</option></select></div>
+                <div><label class="text-sm font-medium text-gray-700">Type de couvert</label>
+                <select id="import-type" class="w-full border rounded px-3 py-2 text-sm mt-1"></select></div>
+            </div>
+            <div class="flex justify-between mt-4">
+                <button class="bg-gray-200 px-4 py-2 rounded-lg text-sm" onclick="showStep(2)">Precedent</button>
+                <button class="bg-green-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-800" onclick="executeImport()">Lancer l'import</button>
+            </div>
+        </div>
+        <div id="step-4" class="step-content hidden bg-white rounded-xl shadow p-6">
+            <h2 class="text-lg font-semibold mb-4">Resultat</h2>
+            <div id="import-result" class="text-sm"></div>
+            <a href="/backoffice/" class="inline-block mt-4 bg-green-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-800">Retour</a>
+        </div>
+    </main>
+</div>
+<script src="{% static 'js/backoffice/importWizard.js' %}"></script>
+{% endblock %}

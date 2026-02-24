@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+venv/
+env/
+.venv/
+.venv
+
+# Claude Code
+.claude/
+
+# Django
+*.sqlite3
+db.sqlite3
+/static_collected/
+/staticfiles/
+media/
+
+# Environment
+.env
+
+# Node
+node_modules/
+package-lock.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tailwind build output (regenerated)
+frontend/static/css/tailwind-output.css

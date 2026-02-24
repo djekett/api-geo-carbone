@@ -1,0 +1,34 @@
+{% comment %}
+    Navbar component — include in all pages.
+    Variables: 
+      - nav_style: "glass" (transparent) or "solid" (opaque)
+      - nav_active: "home", "enjeux", or "carte"
+{% endcomment %}
+
+<nav id="main-nav" class="{% if nav_style == 'solid' %}bg-forest-950 border-b border-green-900/30{% else %}nav-glass{% endif %} fixed top-0 left-0 right-0 z-50 transition-all duration-300">
+    <div class="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+        <a href="/" class="flex items-center gap-3 group">
+            <div class="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center border border-green-400/30 group-hover:bg-green-500/30 transition-all">
+                <i class="fas fa-leaf text-green-400 text-lg"></i>
+            </div>
+            <div>
+                <span class="text-white font-display text-lg tracking-tight">API.GEO.Carbone</span>
+                <span class="hidden sm:block text-green-300/70 text-xs -mt-0.5">Département d'Oumé</span>
+            </div>
+        </a>
+        <div class="flex items-center gap-1 sm:gap-3">
+            <a href="/" class="{% if nav_active == 'home' %}text-white bg-white/15{% else %}text-green-100/70 hover:text-white hover:bg-white/10{% endif %} text-sm font-medium transition-all px-3 py-1.5 rounded-lg">
+                <i class="fas fa-home mr-1 text-xs hidden sm:inline"></i>Accueil
+            </a>
+            <a href="/enjeux/" class="{% if nav_active == 'enjeux' %}text-white bg-white/15{% else %}text-green-100/70 hover:text-white hover:bg-white/10{% endif %} text-sm font-medium transition-all px-3 py-1.5 rounded-lg">
+                <i class="fas fa-fire-alt mr-1 text-xs hidden sm:inline"></i>Enjeux
+            </a>
+            <a href="/cartes/" class="{% if nav_active == 'cartes' %}text-white bg-white/15{% else %}text-green-100/70 hover:text-white hover:bg-white/10{% endif %} text-sm font-medium transition-all px-3 py-1.5 rounded-lg">
+                <i class="fas fa-images mr-1 text-xs hidden sm:inline"></i>Cartes
+            </a>
+            <a href="/carte/" class="bg-green-500 hover:bg-green-400 text-white text-sm font-semibold px-5 py-2 rounded-xl transition-all shadow-lg shadow-green-500/25 hover:shadow-green-400/40">
+                <i class="fas fa-map mr-1.5"></i>Carte
+            </a>
+        </div>
+    </div>
+</nav>
