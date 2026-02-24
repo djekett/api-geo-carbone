@@ -18,6 +18,9 @@ django-cors-headers>=4.3.0
 # Database (PostGIS)
 psycopg2-binary>=2.9.9
 
+# Geospatial data processing
+geopandas>=0.14.0
+
 # Admin theme
 django-jazzmin>=2.6.0
 
