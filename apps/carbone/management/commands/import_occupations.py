@@ -1,8 +1,10 @@
 import os
+import unicodedata
 import geopandas as gpd
 from django.core.management.base import BaseCommand
 from django.contrib.gis.geos import GEOSGeometry, MultiPolygon
 from django.conf import settings
+from django.db.models import Count
 from apps.carbone.models import OccupationSol, ForetClassee, NomenclatureCouvert
 
 
@@ -45,6 +47,60 @@ class Command(BaseCommand):
         parser.add_argument('--year', type=int, help='Import only this year')
         parser.add_argument('--clear', action='store_true', help='Clear existing data before import')
 
+    # ------------------------------------------------------------------
+    # Fuzzy shapefile finder (exact -> case-insensitive -> no-accent -> stem)
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _normalize(name):
+        """Remove accents and convert to lowercase."""
+        nfkd = unicodedata.normalize('NFKD', name)
+        return ''.join(c for c in nfkd if not unicodedata.combining(c)).lower()
+
+    def _find_shapefile(self, year_dir, expected_name):
+        """
+        Find a shapefile by name with progressive fallback:
+        1. Exact match
+        2. Case-insensitive match
+        3. Accent-insensitive match
+        4. Partial stem match (e.g. "jach" matches "Jacheres23.shp")
+        """
+        # 1. Exact match
+        exact_path = os.path.join(year_dir, expected_name)
+        if os.path.exists(exact_path):
+            return exact_path
+
+        if not os.path.isdir(year_dir):
+            return None
+
+        available = [f for f in os.listdir(year_dir) if f.lower().endswith('.shp')]
+        expected_lower = expected_name.lower()
+        expected_norm = self._normalize(expected_name)
+
+        # 2. Case-insensitive match
+        for f in available:
+            if f.lower() == expected_lower:
+                self.stdout.write(f'    (case-insensitive match: {f})')
+                return os.path.join(year_dir, f)
+
+        # 3. Accent-insensitive match
+        for f in available:
+            if self._normalize(f) == expected_norm:
+                self.stdout.write(f'    (accent-insensitive match: {f})')
+                return os.path.join(year_dir, f)
+
+        # 4. Partial stem match
+        stem = self._normalize(os.path.splitext(expected_name)[0]).rstrip('0123456789')
+        for f in available:
+            f_stem = self._normalize(os.path.splitext(f)[0]).rstrip('0123456789')
+            if f_stem == stem or f_stem.startswith(stem) or stem.startswith(f_stem):
+                self.stdout.write(f'    (partial stem match: {f} ~ {expected_name})')
+                return os.path.join(year_dir, f)
+
+        return None
+
+    # ------------------------------------------------------------------
+    # Main handle
+    # ------------------------------------------------------------------
     def handle(self, *args, **options):
         data_dir = options['data_dir']
         target_year = options.get('year')
@@ -79,9 +135,16 @@ class Command(BaseCommand):
             self.stdout.write(f'\n=== Importing year {annee} from {year_dir} ===')
 
             for cover_code, shp_name in year_config['files'].items():
-                shp_path = os.path.join(year_dir, shp_name)
-                if not os.path.exists(shp_path):
-                    self.stdout.write(self.style.WARNING(f'  SKIP: {shp_name} not found'))
+                # Use fuzzy finder instead of exact match
+                shp_path = self._find_shapefile(year_dir, shp_name)
+                if not shp_path:
+                    self.stdout.write(self.style.WARNING(
+                        f'  SKIP: {shp_name} not found in {year_dir}'
+                    ))
+                    # List available files for debugging
+                    if os.path.isdir(year_dir):
+                        available = [f for f in os.listdir(year_dir) if f.lower().endswith('.shp')]
+                        self.stdout.write(f'    Available .shp files: {available}')
                     continue
 
                 nomenclature = nomenclatures.get(cover_code)
@@ -89,7 +152,8 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.WARNING(f'  SKIP: nomenclature {cover_code} not found'))
                     continue
 
-                self.stdout.write(f'  Reading: {shp_name} -> {cover_code}')
+                actual_name = os.path.basename(shp_path)
+                self.stdout.write(f'  Reading: {actual_name} -> {cover_code}')
                 try:
                     gdf = gpd.read_file(shp_path)
                     gdf = gdf.to_crs(epsg=4326)
@@ -121,7 +185,7 @@ class Command(BaseCommand):
                                 nomenclature=nomenclature,
                                 annee=annee,
                                 geom=geom,
-                                source_donnee=f'Shapefile {shp_name}',
+                                source_donnee=f'Shapefile {actual_name}',
                             )
                             imported += 1
 
@@ -134,5 +198,16 @@ class Command(BaseCommand):
 
                 except Exception as e:
                     self.stdout.write(self.style.ERROR(f'    ERROR: {e}'))
+
+        # Diagnostic summary: show DB state per year/type
+        self.stdout.write(f'\n--- DB Summary ---')
+        for annee in years_to_process:
+            if annee not in YEAR_DIRS:
+                continue
+            counts = OccupationSol.objects.filter(annee=annee).values(
+                'nomenclature__code'
+            ).annotate(n=Count('id'))
+            summary = ', '.join(f"{c['nomenclature__code']}={c['n']}" for c in counts)
+            self.stdout.write(f'  {annee}: {summary or "EMPTY"}')
 
         self.stdout.write(self.style.SUCCESS('\nOccupation import complete.'))

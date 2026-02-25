@@ -1,12 +1,13 @@
 {% comment %}
     Navbar component — include in all pages.
-    Variables: 
+    Variables:
       - nav_style: "glass" (transparent) or "solid" (opaque)
       - nav_active: "home", "enjeux", or "carte"
 {% endcomment %}
 
 <nav id="main-nav" class="{% if nav_style == 'solid' %}bg-forest-950 border-b border-green-900/30{% else %}nav-glass{% endif %} fixed top-0 left-0 right-0 z-50 transition-all duration-300">
-    <div class="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+        <!-- Logo -->
         <a href="/" class="flex items-center gap-3 group">
             <div class="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center border border-green-400/30 group-hover:bg-green-500/30 transition-all">
                 <i class="fas fa-leaf text-green-400 text-lg"></i>
@@ -16,19 +17,70 @@
                 <span class="hidden sm:block text-green-300/70 text-xs -mt-0.5">Département d'Oumé</span>
             </div>
         </a>
-        <div class="flex items-center gap-1 sm:gap-3">
+
+        <!-- Desktop nav links (hidden on mobile) -->
+        <div class="hidden lg:flex items-center gap-3">
             <a href="/" class="{% if nav_active == 'home' %}text-white bg-white/15{% else %}text-green-100/70 hover:text-white hover:bg-white/10{% endif %} text-sm font-medium transition-all px-3 py-1.5 rounded-lg">
-                <i class="fas fa-home mr-1 text-xs hidden sm:inline"></i>Accueil
+                <i class="fas fa-home mr-1 text-xs"></i>Accueil
             </a>
             <a href="/enjeux/" class="{% if nav_active == 'enjeux' %}text-white bg-white/15{% else %}text-green-100/70 hover:text-white hover:bg-white/10{% endif %} text-sm font-medium transition-all px-3 py-1.5 rounded-lg">
-                <i class="fas fa-fire-alt mr-1 text-xs hidden sm:inline"></i>Enjeux
+                <i class="fas fa-fire-alt mr-1 text-xs"></i>Enjeux
             </a>
             <a href="/cartes/" class="{% if nav_active == 'cartes' %}text-white bg-white/15{% else %}text-green-100/70 hover:text-white hover:bg-white/10{% endif %} text-sm font-medium transition-all px-3 py-1.5 rounded-lg">
-                <i class="fas fa-images mr-1 text-xs hidden sm:inline"></i>Cartes
+                <i class="fas fa-images mr-1 text-xs"></i>Cartes
             </a>
             <a href="/carte/" class="bg-green-500 hover:bg-green-400 text-white text-sm font-semibold px-5 py-2 rounded-xl transition-all shadow-lg shadow-green-500/25 hover:shadow-green-400/40">
                 <i class="fas fa-map mr-1.5"></i>Carte
             </a>
         </div>
+
+        <!-- Mobile: CTA + Hamburger -->
+        <div class="flex items-center gap-2 lg:hidden">
+            <a href="/carte/" class="bg-green-500 hover:bg-green-400 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-all shadow-lg shadow-green-500/25">
+                <i class="fas fa-map mr-1"></i>Carte
+            </a>
+            <button id="nav-hamburger" class="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-all" aria-label="Menu">
+                <i class="fas fa-bars text-lg"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Mobile dropdown menu -->
+    <div id="nav-mobile-menu" class="hidden lg:hidden border-t border-white/10 bg-forest-950/95 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 py-3 space-y-1">
+            <a href="/" class="{% if nav_active == 'home' %}text-white bg-white/15{% else %}text-green-100/70 hover:text-white hover:bg-white/10{% endif %} block text-sm font-medium transition-all px-3 py-2.5 rounded-lg">
+                <i class="fas fa-home mr-2 text-xs w-4 text-center"></i>Accueil
+            </a>
+            <a href="/enjeux/" class="{% if nav_active == 'enjeux' %}text-white bg-white/15{% else %}text-green-100/70 hover:text-white hover:bg-white/10{% endif %} block text-sm font-medium transition-all px-3 py-2.5 rounded-lg">
+                <i class="fas fa-fire-alt mr-2 text-xs w-4 text-center"></i>Enjeux
+            </a>
+            <a href="/cartes/" class="{% if nav_active == 'cartes' %}text-white bg-white/15{% else %}text-green-100/70 hover:text-white hover:bg-white/10{% endif %} block text-sm font-medium transition-all px-3 py-2.5 rounded-lg">
+                <i class="fas fa-images mr-2 text-xs w-4 text-center"></i>Cartes
+            </a>
+        </div>
     </div>
 </nav>
+
+<script>
+(function() {
+    const btn = document.getElementById('nav-hamburger');
+    const menu = document.getElementById('nav-mobile-menu');
+    if (btn && menu) {
+        btn.addEventListener('click', function() {
+            menu.classList.toggle('hidden');
+            const icon = btn.querySelector('i');
+            icon.classList.toggle('fa-bars');
+            icon.classList.toggle('fa-times');
+        });
+        // Close menu when clicking a link
+        menu.querySelectorAll('a').forEach(function(link) {
+            link.addEventListener('click', function() {
+                menu.classList.add('hidden');
+                const icon = btn.querySelector('i');
+                icon.classList.add('fa-bars');
+                icon.classList.remove('fa-times');
+            });
+        });
+    }
+})();
+</script>
