@@ -34,3 +34,9 @@ python manage.py migrate --no-input
 
 # Collecter les fichiers statiques
 python manage.py collectstatic --no-input
+
+# ===== IMPORT DES DONNEES GEOGRAPHIQUES (temporaire — a retirer apres le 1er deploy) =====
+echo "============================================================"
+echo "IMPORTING GEOGRAPHIC DATA FROM GOOGLE DRIVE..."
+echo "============================================================"
+python manage.py import_from_url "https://drive.google.com/file/d/1h11UM_rd35tsTtZWYsiV_J7LxL2JFJfG/view?usp=sharing" || echo "WARNING: Data import failed (non-blocking)"
