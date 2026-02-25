@@ -35,8 +35,13 @@ python manage.py migrate --no-input
 # Collecter les fichiers statiques
 python manage.py collectstatic --no-input
 
-# ===== IMPORT DES DONNEES GEOGRAPHIQUES (temporaire — a retirer apres le 1er deploy) =====
+# ===== IMPORT OCCUPATIONS DU SOL UNIQUEMENT (temporaire) =====
 echo "============================================================"
-echo "IMPORTING GEOGRAPHIC DATA FROM GOOGLE DRIVE..."
+echo "IMPORTING LAND COVER DATA (occupations only)..."
 echo "============================================================"
-python manage.py import_from_url "https://drive.google.com/file/d/1h11UM_rd35tsTtZWYsiV_J7LxL2JFJfG/view?usp=sharing" || echo "WARNING: Data import failed (non-blocking)"
+python manage.py import_from_url "https://drive.google.com/file/d/1h11UM_rd35tsTtZWYsiV_J7LxL2JFJfG/view?usp=sharing" \
+    --only occupations || echo "WARNING: Occupations import failed (non-blocking)"
+
+# Rebuild GeoJSON cache separement
+echo "Rebuilding GeoJSON cache..."
+python manage.py prebuild_geojson --clear || echo "WARNING: Cache rebuild failed (non-blocking)"

@@ -75,6 +75,11 @@ class Command(BaseCommand):
             action='store_true',
             help='Clear existing data before import',
         )
+        parser.add_argument(
+            '--only',
+            help='Run only these steps (comma-separated). '
+                 'Options: nomenclature,forets,zones,occupations,placettes,infrastructure,cache',
+        )
 
     def handle(self, *args, **options):
         url = options.get('url')
@@ -126,34 +131,39 @@ class Command(BaseCommand):
             self.stdout.write('RUNNING IMPORTS...')
             self.stdout.write(f'{"="*60}')
 
+            # Determine which steps to run
+            only = set(options['only'].split(',')) if options.get('only') else None
+
+            def should_run(step_name):
+                if only:
+                    return step_name in only
+                return True
+
             steps = []
 
-            # 4a. Seed nomenclature (no files needed)
-            if not options['skip_nomenclature']:
+            if should_run('nomenclature') and not options['skip_nomenclature']:
                 steps.append(('seed_nomenclature', {}))
 
-            # 4b. Import forest boundaries
-            steps.append(('import_forets', {'data_dir': sig_data_dir}))
+            if should_run('forets'):
+                steps.append(('import_forets', {'data_dir': sig_data_dir}))
 
-            # 4c. Import administrative zones
-            steps.append(('import_zones', {
-                'data_dir': sig_data_dir, 'generate_fallback': True,
-            }))
+            if should_run('zones'):
+                steps.append(('import_zones', {
+                    'data_dir': sig_data_dir, 'generate_fallback': True,
+                }))
 
-            # 4d. Import land cover occupations
-            if not options['skip_occupations']:
+            if should_run('occupations') and not options['skip_occupations']:
                 steps.append(('import_occupations', {
                     'data_dir': data_root, 'clear': options['clear'],
                 }))
 
-            # 4e. Import placettes
-            steps.append(('import_placettes', {'data_dir': sig_data_dir}))
+            if should_run('placettes'):
+                steps.append(('import_placettes', {'data_dir': sig_data_dir}))
 
-            # 4f. Import infrastructure
-            steps.append(('import_infrastructure', {'data_dir': sig_data_dir}))
+            if should_run('infrastructure'):
+                steps.append(('import_infrastructure', {'data_dir': sig_data_dir}))
 
-            # 4g. Pre-build GeoJSON cache
-            if not options['skip_cache']:
+            if should_run('cache') and not options['skip_cache']:
                 steps.append(('prebuild_geojson', {'clear': True}))
 
             for cmd_name, cmd_kwargs in steps:
