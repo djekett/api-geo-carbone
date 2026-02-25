@@ -36,8 +36,6 @@ import os
 import re
 import tempfile
 import zipfile
-import urllib.request
-import ssl
 
 from django.core.management.base import BaseCommand
 from django.core.management import call_command
@@ -177,52 +175,61 @@ class Command(BaseCommand):
         self.stdout.write(f'DOWNLOADING...')
         self.stdout.write(f'{"="*60}')
 
-        # Convert Google Drive sharing URL to direct download
+        # Google Drive: use gdown (handles confirmation pages & large files)
         gdrive_match = re.search(r'drive\.google\.com/file/d/([^/]+)', url)
+        gdrive_uc_match = re.search(r'drive\.google\.com/uc\?id=([^&]+)', url)
+        file_id = None
         if gdrive_match:
             file_id = gdrive_match.group(1)
-            url = f'https://drive.google.com/uc?id={file_id}&export=download&confirm=t'
-            self.stdout.write(f'Converted to Google Drive direct URL')
+        elif gdrive_uc_match:
+            file_id = gdrive_uc_match.group(1)
 
-        # Convert Dropbox URL to direct download
-        if 'dropbox.com' in url:
-            url = url.replace('dl=0', 'dl=1').replace('www.dropbox.com', 'dl.dropboxusercontent.com')
+        if file_id:
+            self.stdout.write(f'Google Drive file ID: {file_id}')
+            try:
+                import gdown
+            except ImportError:
+                self.stdout.write('Installing gdown...')
+                import subprocess
+                subprocess.check_call(['pip', 'install', 'gdown'])
+                import gdown
 
-        self.stdout.write(f'URL: {url}')
+            gdrive_url = f'https://drive.google.com/uc?id={file_id}'
+            self.stdout.write(f'Downloading with gdown...')
+            gdown.download(gdrive_url, dest_path, quiet=False, fuzzy=True)
+        else:
+            # Dropbox: convert to direct download
+            if 'dropbox.com' in url:
+                url = url.replace('dl=0', 'dl=1').replace(
+                    'www.dropbox.com', 'dl.dropboxusercontent.com'
+                )
 
-        # Download with progress
-        ctx = ssl.create_default_context()
-        req = urllib.request.Request(url, headers={
-            'User-Agent': 'Mozilla/5.0 (compatible; API.GEO.Carbone/1.0)',
-        })
-
-        try:
+            # Generic URL download
+            self.stdout.write(f'URL: {url}')
+            import urllib.request
+            import ssl
+            ctx = ssl.create_default_context()
+            req = urllib.request.Request(url, headers={
+                'User-Agent': 'Mozilla/5.0 (compatible; API.GEO.Carbone/1.0)',
+            })
             with urllib.request.urlopen(req, context=ctx) as response:
-                total = response.headers.get('Content-Length')
-                total = int(total) if total else None
-                downloaded = 0
-                block_size = 1024 * 1024  # 1 MB
-
-                if total:
-                    self.stdout.write(f'File size: {total / (1024*1024):.1f} MB')
-
                 with open(dest_path, 'wb') as f:
                     while True:
-                        chunk = response.read(block_size)
+                        chunk = response.read(1024 * 1024)
                         if not chunk:
                             break
                         f.write(chunk)
-                        downloaded += len(chunk)
-                        if total:
-                            pct = downloaded * 100 // total
-                            self.stdout.write(f'  {pct}% ({downloaded // (1024*1024)} MB)', ending='\r')
 
-            self.stdout.write(self.style.SUCCESS(
-                f'\nDownloaded: {os.path.getsize(dest_path) / (1024*1024):.1f} MB'
+        file_size = os.path.getsize(dest_path)
+        self.stdout.write(self.style.SUCCESS(
+            f'Downloaded: {file_size / (1024*1024):.1f} MB'
+        ))
+
+        if file_size < 1000:
+            self.stderr.write(self.style.ERROR(
+                f'File too small ({file_size} bytes) - likely an error page, not the ZIP.'
             ))
-        except Exception as e:
-            self.stderr.write(self.style.ERROR(f'Download failed: {e}'))
-            raise
+            raise ValueError('Downloaded file is too small, check URL permissions.')
 
     def _find_data_root(self, extract_dir):
         """Find the actual data root inside the extracted archive."""
