@@ -39,6 +39,7 @@ import zipfile
 
 from django.core.management.base import BaseCommand
 from django.core.management import call_command
+from django import db
 
 
 class Command(BaseCommand):
@@ -120,50 +121,49 @@ class Command(BaseCommand):
             self._list_found_files(data_root, sig_data_dir)
 
             # Step 4: Run imports in order
+            # Reset DB connection before each step to avoid timeout/closed errors
             self.stdout.write(f'\n{"="*60}')
             self.stdout.write('RUNNING IMPORTS...')
             self.stdout.write(f'{"="*60}')
 
+            steps = []
+
             # 4a. Seed nomenclature (no files needed)
             if not options['skip_nomenclature']:
-                self.stdout.write(f'\n--- seed_nomenclature ---')
-                call_command('seed_nomenclature', stdout=self.stdout)
+                steps.append(('seed_nomenclature', {}))
 
             # 4b. Import forest boundaries
-            self.stdout.write(f'\n--- import_forets ---')
-            call_command('import_forets', data_dir=sig_data_dir, stdout=self.stdout)
+            steps.append(('import_forets', {'data_dir': sig_data_dir}))
 
             # 4c. Import administrative zones
-            self.stdout.write(f'\n--- import_zones ---')
-            call_command(
-                'import_zones',
-                data_dir=sig_data_dir,
-                generate_fallback=True,
-                stdout=self.stdout,
-            )
+            steps.append(('import_zones', {
+                'data_dir': sig_data_dir, 'generate_fallback': True,
+            }))
 
             # 4d. Import land cover occupations
             if not options['skip_occupations']:
-                self.stdout.write(f'\n--- import_occupations ---')
-                call_command(
-                    'import_occupations',
-                    data_dir=data_root,
-                    clear=options['clear'],
-                    stdout=self.stdout,
-                )
+                steps.append(('import_occupations', {
+                    'data_dir': data_root, 'clear': options['clear'],
+                }))
 
             # 4e. Import placettes
-            self.stdout.write(f'\n--- import_placettes ---')
-            call_command('import_placettes', data_dir=sig_data_dir, stdout=self.stdout)
+            steps.append(('import_placettes', {'data_dir': sig_data_dir}))
 
             # 4f. Import infrastructure
-            self.stdout.write(f'\n--- import_infrastructure ---')
-            call_command('import_infrastructure', data_dir=sig_data_dir, stdout=self.stdout)
+            steps.append(('import_infrastructure', {'data_dir': sig_data_dir}))
 
             # 4g. Pre-build GeoJSON cache
             if not options['skip_cache']:
-                self.stdout.write(f'\n--- prebuild_geojson ---')
-                call_command('prebuild_geojson', clear=True, stdout=self.stdout)
+                steps.append(('prebuild_geojson', {'clear': True}))
+
+            for cmd_name, cmd_kwargs in steps:
+                self.stdout.write(f'\n--- {cmd_name} ---')
+                try:
+                    db.close_old_connections()
+                    call_command(cmd_name, stdout=self.stdout, **cmd_kwargs)
+                    self.stdout.write(self.style.SUCCESS(f'  OK: {cmd_name}'))
+                except Exception as e:
+                    self.stderr.write(self.style.ERROR(f'  FAILED: {cmd_name} -> {e}'))
 
         self.stdout.write(f'\n{"="*60}')
         self.stdout.write(self.style.SUCCESS('ALL IMPORTS COMPLETE!'))
