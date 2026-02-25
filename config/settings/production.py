@@ -32,7 +32,9 @@ MIDDLEWARE.insert(
     MIDDLEWARE.index('django.middleware.security.SecurityMiddleware') + 1,
     'whitenoise.middleware.WhiteNoiseMiddleware',
 )
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# CompressedStaticFilesStorage au lieu de CompressedManifest* car Jazzmin/Bootswatch
+# reference des sourcemaps (.map) manquants, ce qui fait echouer le Manifest storage.
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # ──────────────────────────────────────────────
 # Security
