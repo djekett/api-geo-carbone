@@ -4,9 +4,10 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
 
-from .views import HomeView, EnjeuxView, CartesView
+from .views import HomeView, EnjeuxView, CartesView, trigger_import_view
 
 urlpatterns = [
+    path('admin/trigger-import/', trigger_import_view, name='trigger-import'),
     path('admin/', admin.site.urls),
 
     # API v1
