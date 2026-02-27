@@ -122,54 +122,6 @@ class Command(BaseCommand):
                 return row[0] if isinstance(row[0], dict) else json.loads(row[0])
         return {'type': 'FeatureCollection', 'features': []}
 
-    def _filter_micro_fragments(self, data, min_ring_coords=6):
-        """
-        Post-process GeoJSON to remove micro-fragment polygon parts.
-
-        Sentinel-2 (10m) raster-to-vector conversion produces thousands of
-        tiny triangle/rectangle fragments (outer ring < 6 coords). These are
-        invisible at map zoom levels but overwhelm the Canvas renderer.
-
-        Keeps all polygon parts with outer ring >= min_ring_coords.
-        """
-        if not data or not data.get('features'):
-            return data
-
-        total_before = 0
-        total_after = 0
-
-        for feature in data['features']:
-            geom = feature.get('geometry')
-            if not geom or geom.get('type') != 'MultiPolygon':
-                continue
-
-            coords = geom['coordinates']
-            total_before += len(coords)
-
-            filtered = [
-                polygon for polygon in coords
-                if polygon and polygon[0] and len(polygon[0]) >= min_ring_coords
-            ]
-
-            total_after += len(filtered)
-            geom['coordinates'] = filtered
-
-        # Remove features with empty geometry
-        data['features'] = [
-            f for f in data['features']
-            if f.get('geometry') and f['geometry'].get('coordinates')
-        ]
-
-        if total_before != total_after:
-            removed = total_before - total_after
-            pct = round(removed * 100 / total_before) if total_before else 0
-            self.stdout.write(
-                f'    Filtered micro-fragments: {total_before} → {total_after} '
-                f'polygon parts (-{removed}, {pct}%)'
-            )
-
-        return data
-
     def _build_occupation(self, annee, foret_code, tolerance):
         """Build occupation GeoJSON for a specific year and optional forest."""
         conditions = ["o.annee = %s"]
@@ -193,8 +145,7 @@ class Command(BaseCommand):
                 'id', o.id,
                 'geometry', ST_AsGeoJSON(
                     ST_SimplifyPreserveTopology(
-                        ST_CollectionExtract(ST_MakeValid(o.geom), 3),
-                        {tolerance}
+                        ST_MakeValid(o.geom), {tolerance}
                     ), {GEOJSON_PRECISION}
                 )::json,
                 'properties', json_build_object(
@@ -218,10 +169,6 @@ class Command(BaseCommand):
         ) sub;
         """
         data = self._query_geojson(sql, params)
-
-        # Post-process: remove micro-fragments from raster-to-vector conversion
-        data = self._filter_micro_fragments(data)
-
         self._save(filename, data)
 
     def _build_forets(self):

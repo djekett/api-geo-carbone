@@ -120,8 +120,7 @@ def _serve_cached(filename):
 
     Response includes:
       - Content-Type: application/json
-      - ETag based on file modification time (browser validates on reload)
-      - Cache-Control: public, max-age=300 (5min browser cache, then revalidate)
+      - Cache-Control: public, max-age=3600 (1h browser cache)
       - X-GeoCache: HIT header for debugging
     """
     path = os.path.join(GEOCACHE_DIR, filename)
@@ -130,10 +129,7 @@ def _serve_cached(filename):
             open(path, 'rb'),
             content_type='application/json',
         )
-        # Use shorter max-age + ETag so fixes are picked up quickly
-        mtime = int(os.path.getmtime(path))
-        response['Cache-Control'] = 'public, max-age=300, must-revalidate'
-        response['ETag'] = f'"{filename}-{mtime}"'
+        response['Cache-Control'] = 'public, max-age=3600'
         response['X-GeoCache'] = 'HIT'
         return response
     return None
@@ -213,11 +209,6 @@ class OccupationSolViewSet(viewsets.ModelViewSet):
 
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
-        # Use ST_CollectionExtract to extract polygons only,
-        # then filter out micro-fragments (< 100 sq m) from raster-to-vector
-        # conversion that overwhelm the Canvas renderer.
-        # The micro-fragment filter uses ST_Area on the geography type
-        # to get area in square meters for an accurate threshold.
         sql = f"""
         SELECT json_build_object(
             'type', 'FeatureCollection',
@@ -226,37 +217,28 @@ class OccupationSolViewSet(viewsets.ModelViewSet):
         FROM (
             SELECT json_build_object(
                 'type', 'Feature',
-                'id', sub2.id,
-                'geometry', ST_AsGeoJSON(sub2.clean_geom, 4)::json,
-                'properties', sub2.props
+                'id', o.id,
+                'geometry', ST_AsGeoJSON(
+                    ST_Simplify(o.geom, {tolerance}), 4
+                )::json,
+                'properties', json_build_object(
+                    'id', o.id,
+                    'foret_code', f.code,
+                    'foret_nom', f.nom,
+                    'type_couvert', n.code,
+                    'libelle', n.libelle_fr,
+                    'couleur', n.couleur_hex,
+                    'annee', o.annee,
+                    'superficie_ha', ROUND(o.superficie_ha::numeric, 2),
+                    'stock_carbone_calcule', ROUND(o.stock_carbone_calcule::numeric, 2),
+                    'source_donnee', o.source_donnee
+                )
             ) AS feat
-            FROM (
-                SELECT
-                    o.id,
-                    ST_Simplify(
-                        ST_CollectionExtract(ST_MakeValid(o.geom), 3),
-                        {tolerance}
-                    ) AS clean_geom,
-                    json_build_object(
-                        'id', o.id,
-                        'foret_code', f.code,
-                        'foret_nom', f.nom,
-                        'type_couvert', n.code,
-                        'libelle', n.libelle_fr,
-                        'couleur', n.couleur_hex,
-                        'annee', o.annee,
-                        'superficie_ha', ROUND(o.superficie_ha::numeric, 2),
-                        'stock_carbone_calcule', ROUND(o.stock_carbone_calcule::numeric, 2),
-                        'source_donnee', o.source_donnee
-                    ) AS props,
-                    n.ordre_affichage
-                FROM carbone_occupationsol o
-                JOIN carbone_foretclassee f ON o.foret_id = f.id
-                JOIN carbone_nomenclaturecouvert n ON o.nomenclature_id = n.id
-                {where}
-            ) sub2
-            WHERE NOT ST_IsEmpty(sub2.clean_geom)
-            ORDER BY sub2.ordre_affichage, sub2.id
+            FROM carbone_occupationsol o
+            JOIN carbone_foretclassee f ON o.foret_id = f.id
+            JOIN carbone_nomenclaturecouvert n ON o.nomenclature_id = n.id
+            {where}
+            ORDER BY n.ordre_affichage, o.id
         ) sub;
         """
         return _raw_geojson(sql, params)

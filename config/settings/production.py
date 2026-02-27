@@ -55,11 +55,19 @@ _cors_raw = os.environ.get('CORS_ALLOWED_ORIGINS', '')
 CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_raw.split(',') if o.strip()]
 if RENDER_EXTERNAL_HOSTNAME:
     CORS_ALLOWED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
+# Custom domain
+CORS_ALLOWED_ORIGINS += [
+    'https://api-geo-carbone.com',
+    'https://www.api-geo-carbone.com',
+]
 
 # ──────────────────────────────────────────────
 # CSRF trusted origins
 # ──────────────────────────────────────────────
-CSRF_TRUSTED_ORIGINS = []
+CSRF_TRUSTED_ORIGINS = [
+    'https://api-geo-carbone.com',
+    'https://www.api-geo-carbone.com',
+]
 if RENDER_EXTERNAL_HOSTNAME:
     CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
 extra_csrf = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
