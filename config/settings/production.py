@@ -13,6 +13,8 @@ RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+# Domaines personnalisés toujours autorisés (filet de sécurité)
+ALLOWED_HOSTS += ['api-geo-carbone.com', 'www.api-geo-carbone.com']
 
 # ──────────────────────────────────────────────
 # Database — Render PostgreSQL (PostGIS)
