@@ -219,7 +219,7 @@ class OccupationSolViewSet(viewsets.ModelViewSet):
                 'type', 'Feature',
                 'id', o.id,
                 'geometry', ST_AsGeoJSON(
-                    ST_Simplify(o.geom, {tolerance}), 4
+                    ST_SimplifyPreserveTopology(ST_MakeValid(o.geom), {tolerance}), 4
                 )::json,
                 'properties', json_build_object(
                     'id', o.id,
@@ -342,7 +342,7 @@ class ForetClasseeViewSet(viewsets.ReadOnlyModelViewSet):
                 'type', 'Feature',
                 'id', f.id,
                 'geometry', ST_AsGeoJSON(
-                    ST_Simplify(f.geom, {tolerance}), 4
+                    ST_SimplifyPreserveTopology(ST_MakeValid(f.geom), {tolerance}), 4
                 )::json,
                 'properties', json_build_object(
                     'id', f.id,
@@ -417,7 +417,7 @@ class ZoneEtudeViewSet(viewsets.ReadOnlyModelViewSet):
                 'type', 'Feature',
                 'id', z.id,
                 'geometry', ST_AsGeoJSON(
-                    ST_Simplify(z.geom, {tolerance}), 4
+                    ST_SimplifyPreserveTopology(ST_MakeValid(z.geom), {tolerance}), 4
                 )::json,
                 'properties', json_build_object(
                     'id', z.id,

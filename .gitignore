@@ -20,7 +20,9 @@ env/
 db.sqlite3
 /static_collected/
 /staticfiles/
-media/
+# Media uploads (ignore user uploads, keep pre-built geocache)
+media/*
+!media/geocache/
 
 # Environment
 .env

@@ -35,6 +35,11 @@ python manage.py migrate --no-input
 # Collecter les fichiers statiques
 python manage.py collectstatic --no-input
 
+# Pre-construire le cache GeoJSON si des donnees existent en base
+# (les fichiers media/geocache/ du repo sont aussi deployes comme fallback)
+python manage.py seed_nomenclature 2>/dev/null || echo "Nomenclature: skipped or already seeded"
+python manage.py prebuild_geojson 2>/dev/null || echo "GeoCache prebuild: skipped (no data in DB yet)"
+
 # ===== Auto-creation superuser depuis variables d'environnement =====
 python -c "
 import django, os
