@@ -83,9 +83,9 @@
         <p class="text-gray-500 text-center mb-14 text-lg">Diagrammes basés sur les données de l'API — Superficies et stocks de carbone par type de couvert</p>
 
         <div class="grid lg:grid-cols-2 gap-8">
-            <!-- Chart 1: Évolution des superficies par type -->
+            <!-- Chart 1: Évolution des superficies par type
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <h3 class="font-display text-xl text-forest-900 mb-1">Évolution des superficies par type</h3>
+                <h3 class="font-display text-xl text-forest-900 mb-1">Évolution des superficies par type de forêts</h3>
                 <p class="text-xs text-gray-400 mb-4">Superficie (ha) par type de couvert pour chaque année d'observation</p>
                 <div class="relative" style="height:320px;">
                     <canvas id="chart-evo-superficie"></canvas>
@@ -93,7 +93,7 @@
                 <p class="text-[10px] text-gray-400 mt-3 italic">Données chargées dynamiquement depuis l'API /occupations/stats/</p>
             </div>
 
-            <!-- Chart 2: Évolution des stocks de carbone -->
+                Chart 2: Évolution des stocks de carbone 
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                 <h3 class="font-display text-xl text-forest-900 mb-1">Évolution des stocks de carbone</h3>
                 <p class="text-xs text-gray-400 mb-4">Stock carbone total (tCO₂) estimé par année d'observation</p>
@@ -101,7 +101,7 @@
                     <canvas id="chart-evo-carbone"></canvas>
                 </div>
                 <p class="text-[10px] text-gray-400 mt-3 italic">CO₂ éq. calculé à partir des superficies × valeurs de référence</p>
-            </div>
+            </div> -->
 
             <!-- Chart 3: Répartition par forêt -->
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
@@ -115,7 +115,7 @@
             <!-- Chart 4: Barres biomasse/carbone/CO2 -->
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                 <h3 class="font-display text-xl text-forest-900 mb-1">Biomasse, Carbone et CO₂ par type</h3>
-                <p class="text-xs text-gray-400 mb-4">Comparaison des valeurs de référence (t/ha ou tCO₂/ha)</p>
+                <p class="text-xs text-gray-400 mb-4">Comparaison des valeurs de référence</p>
                 <div class="relative" style="height:320px;">
                     <canvas id="chart-biomasse"></canvas>
                 </div>
@@ -146,14 +146,14 @@
                         occupaient la majorité de la superficie avec des stocks de carbone élevés.
                     </p>
                     <div class="flex gap-3">
-                        <div class="flex-1 bg-green-50 rounded-xl p-4 text-center">
+                        <!-- <div class="flex-1 bg-green-50 rounded-xl p-4 text-center">
                             <div class="font-display text-2xl text-green-800">3 187</div>
                             <div class="text-xs text-green-600 mt-1">tCO₂/ha Forêt dense</div>
                         </div>
                         <div class="flex-1 bg-green-50 rounded-xl p-4 text-center">
                             <div class="font-display text-2xl text-green-800">3 308</div>
                             <div class="text-xs text-green-600 mt-1">tCO₂/ha Forêt claire</div>
-                        </div>
+                        </div> -->
                     </div>
                 </div>
                 <div class="bg-gradient-to-br from-green-800 to-green-900 rounded-3xl p-8 text-white shadow-xl">
@@ -191,10 +191,10 @@
                             <div class="inline-flex items-center gap-1 text-amber-600 text-sm font-semibold"><i class="fas fa-circle text-[6px]"></i> Déforestation accélérée</div>
                         </div>
                     </div>
-                    <p class="text-gray-600 leading-relaxed mb-5">L'agriculture extensive — cacao, café, hévéa — a pénétré les forêts classées. Les forêts dégradées et jachères remplacent les formations forestières intactes.</p>
+                    <p class="text-gray-600 leading-relaxed mb-5">L'agriculture extensive — cacao, café, hévéa — a pénétré les forêts classées. Une grande infiltration des cultures dans certaine forêts a entraîné une baisse considérable de carbone.</p>
                     <div class="flex gap-3">
-                        <div class="flex-1 bg-amber-50 rounded-xl p-4 text-center"><div class="font-display text-2xl text-amber-800">1 947</div><div class="text-xs text-amber-600 mt-1">tCO₂/ha Forêt dégradée</div></div>
-                        <div class="flex-1 bg-amber-50 rounded-xl p-4 text-center"><div class="font-display text-2xl text-amber-800">2 906</div><div class="text-xs text-amber-600 mt-1">tCO₂/ha Jachère</div></div>
+                        <!-- <div class="flex-1 bg-amber-50 rounded-xl p-4 text-center"><div class="font-display text-2xl text-amber-800">1 947</div><div class="text-xs text-amber-600 mt-1">tCO₂/ha Forêt dégradée</div></div>
+                        <div class="flex-1 bg-amber-50 rounded-xl p-4 text-center"><div class="font-display text-2xl text-amber-800">2 906</div><div class="text-xs text-amber-600 mt-1">tCO₂/ha Jachère</div></div> -->
                     </div>
                 </div>
             </div>
@@ -214,8 +214,8 @@
                     </div>
                     <p class="text-gray-600 leading-relaxed mb-5">La quasi-totalité des forêts classées a été convertie en cultures. Les sols nus et cultures herbacées, avec un stock de carbone nul, occupent des surfaces considérables.</p>
                     <div class="flex gap-3">
-                        <div class="flex-1 bg-red-50 rounded-xl p-4 text-center"><div class="font-display text-2xl text-red-800">0</div><div class="text-xs text-red-600 mt-1">tCO₂/ha Cultures / Sol nu</div></div>
-                        <div class="flex-1 bg-red-50 rounded-xl p-4 text-center"><div class="font-display text-2xl text-red-800">−98%</div><div class="text-xs text-red-600 mt-1">Perte de carbone</div></div>
+                        <!-- <div class="flex-1 bg-red-50 rounded-xl p-4 text-center"><div class="font-display text-2xl text-red-800">0</div><div class="text-xs text-red-600 mt-1">tCO₂/ha Sol nu</div></div>
+                        <div class="flex-1 bg-red-50 rounded-xl p-4 text-center"><div class="font-display text-2xl text-red-800">0</div><div class="text-xs text-red-600 mt-1">tCO₂/ha Culture</div></div> -->  
                     </div>
                 </div>
                 <div class="bg-gradient-to-br from-red-700 to-red-900 rounded-3xl p-8 text-white shadow-xl">
@@ -224,7 +224,7 @@
                     <ul class="space-y-3 text-red-100/80 text-sm">
                         <li class="flex items-start gap-2"><i class="fas fa-skull-crossbones text-red-400 mt-0.5"></i> Forêts denses quasi disparues</li>
                         <li class="flex items-start gap-2"><i class="fas fa-skull-crossbones text-red-400 mt-0.5"></i> Perte massive de biodiversité</li>
-                        <li class="flex items-start gap-2"><i class="fas fa-skull-crossbones text-red-400 mt-0.5"></i> Effondrement des stocks de carbone</li>
+                        <li class="flex items-start gap-2"><i class="fas fa-skull-crossbones text-red-400 mt-0.5"></i> Baisse significative des stocks de carbone</li>
                         <li class="flex items-start gap-2"><i class="fas fa-skull-crossbones text-red-400 mt-0.5"></i> Érosion des sols et crises hydriques</li>
                     </ul>
                 </div>
