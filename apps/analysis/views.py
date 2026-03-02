@@ -1,3 +1,14 @@
+"""
+AI Query View — Chat-to-Map v3.0
+
+Nouveautes:
+- Intent stock_carbone → active le mode CO2 sur la carte
+- Intent resume → synthese globale (par type + par foret)
+- Compare auto-default 1986 vs 2023 si annees manquantes
+- Heritage de contexte etendu (cover_types aussi)
+- Limite de features geojson communiquee au frontend
+- Explication du parsing renvoyee dans la reponse
+"""
 import time
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -12,11 +23,17 @@ class AIQueryView(APIView):
     """
     Endpoint de requete en langage naturel (Chat-to-Map).
 
-    Version 2.0 :
-    - Memoire de session (entites heritees de la requete precedente)
-    - Intents enrichis : help, deforestation, ranking
-    - Suggestions intelligentes quand aucun resultat
+    POST /api/v1/ai/query/
+    Body: {"query": "texte en francais"}
+
+    Retourne un JSON avec:
+    - type: help | geojson | stats | comparison | deforestation |
+            ranking | resume | stock_carbone | no_results
+    - parsed: entites extraites
+    - data: donnees selon le type
     """
+
+    GEOJSON_LIMIT = 200
 
     def post(self, request):
         query = request.data.get('query', '').strip()
@@ -25,6 +42,9 @@ class AIQueryView(APIView):
                 {'error': 'Le champ "query" est requis.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # Limit query length
+        if len(query) > 500:
+            query = query[:500]
 
         start = time.time()
         engine = NLPEngine()
@@ -37,12 +57,18 @@ class AIQueryView(APIView):
         session_context = request.session.get('nlp_context', {})
 
         if parsed['intent'] != 'help':
+            # Inherit forests
             if not parsed['forests'] and session_context.get('forests'):
                 parsed['forests'] = session_context['forests']
                 parsed['_inherited'] = parsed.get('_inherited', []) + ['forests']
+            # Inherit years
             if not parsed['years'] and session_context.get('years'):
                 parsed['years'] = session_context['years']
                 parsed['_inherited'] = parsed.get('_inherited', []) + ['years']
+            # Inherit cover types (new in v3)
+            if not parsed['cover_types'] and session_context.get('cover_types'):
+                parsed['cover_types'] = session_context['cover_types']
+                parsed['_inherited'] = parsed.get('_inherited', []) + ['cover_types']
 
             # Save current context for next query
             request.session['nlp_context'] = {
@@ -66,26 +92,62 @@ class AIQueryView(APIView):
                 'data': {
                     'message': (
                         "Je suis l'assistant IA de la plateforme API.GEO.Carbone. "
-                        "Je peux analyser les donnees forestieres du departement d'Oume."
+                        "Je peux analyser les donnees forestieres du departement d'Oume "
+                        "(6 forets classees, 3 annees : 1986, 2003, 2023)."
                     ),
                     'examples': [
                         "Montre les zones de foret dense a DOKA en 2003",
                         "Quelle est la superficie de foret claire a SANGOUE ?",
                         "Compare TENE entre 1986 et 2023",
                         "Deforestation a LAHOUDA",
-                        "Statistiques de carbone pour 2023",
-                        "Classement des forets par superficie",
+                        "Stock carbone pour 2023",
+                        "Classement des forets par carbone",
+                        "Resume global pour 2023",
+                        "Active le mode CO2 sur la carte",
                     ],
                     'capabilities': [
-                        "Afficher des couches sur la carte",
-                        "Calculer des statistiques de superficie et carbone",
-                        "Comparer l'evolution entre deux annees",
-                        "Analyser la deforestation",
-                        "Classer les forets par taille ou carbone",
+                        "Afficher des couches sur la carte (foret dense, claire, degradee...)",
+                        "Calculer des statistiques de superficie et stock carbone",
+                        "Comparer l'evolution entre deux annees (1986, 2003, 2023)",
+                        "Analyser la deforestation (perte de couvert forestier)",
+                        "Classer les forets par superficie ou par carbone",
+                        "Generer une synthese globale (resume)",
+                        "Activer la spatialisation du stock carbone (mode CO2)",
                     ],
+                    'forests': ['TENE', 'DOKA', 'SANGOUE', 'LAHOUDA', 'ZOUEKE_1', 'ZOUEKE_2'],
+                    'years': [1986, 2003, 2023],
                 },
             }
             orm_desc = 'help'
+            return self._finalize(request, query, parsed, response_data, nb_results, orm_desc, start)
+
+        # STOCK CARBONE intent → tells frontend to activate CO2 mode
+        if parsed['intent'] == 'stock_carbone':
+            response_data = {
+                'type': 'stock_carbone',
+                'parsed': parsed,
+                'data': {
+                    'message': (
+                        "Activation du mode Stock Carbone (CO2) sur la carte. "
+                        "Les 4 classes forestieres sont affichees avec un gradient vert "
+                        "proportionnel au stock de carbone (tCO2/ha)."
+                    ),
+                    'action': 'activate_carbone_mode',
+                },
+            }
+            orm_desc = 'stock_carbone'
+            return self._finalize(request, query, parsed, response_data, 4, orm_desc, start)
+
+        # RESUME intent → full overview
+        if parsed['intent'] == 'resume':
+            resume = engine.build_resume(parsed)
+            nb_results = len(resume.get('par_type', []))
+            response_data = {
+                'type': 'resume',
+                'parsed': parsed,
+                'data': resume,
+            }
+            orm_desc = f"resume {resume.get('annee', '?')}"
             return self._finalize(request, query, parsed, response_data, nb_results, orm_desc, start)
 
         # COMPARE intent
@@ -110,7 +172,7 @@ class AIQueryView(APIView):
             orm_desc = f"deforestation {parsed['years']}"
             return self._finalize(request, query, parsed, response_data, nb_results, orm_desc, start)
 
-        # STATS intent
+        # STATS / CARBON intent
         if parsed['intent'] in ('stats', 'carbon'):
             stats = list(engine.build_stats(parsed))
             nb_results = len(stats)
@@ -132,6 +194,7 @@ class AIQueryView(APIView):
                 'type': 'ranking',
                 'parsed': parsed,
                 'data': ranking,
+                'ranking_by': parsed.get('ranking_by', 'superficie'),
             }
             orm_desc = f"ranking {nb_results} forets"
             return self._finalize(request, query, parsed, response_data, nb_results, orm_desc, start)
@@ -143,12 +206,15 @@ class AIQueryView(APIView):
         if count == 0:
             return self._no_results(request, query, parsed, engine, start)
 
-        features = qs[:200]
+        features = qs[:self.GEOJSON_LIMIT]
         serializer = OccupationSolSerializer(features, many=True)
+        truncated = count > self.GEOJSON_LIMIT
         response_data = {
             'type': 'geojson',
             'parsed': parsed,
             'count': count,
+            'displayed': min(count, self.GEOJSON_LIMIT),
+            'truncated': truncated,
             'data': serializer.data,
         }
         nb_results = count
@@ -170,9 +236,14 @@ class AIQueryView(APIView):
         return self._finalize(request, query, parsed, response_data, 0, 'no_results', start)
 
     def _finalize(self, request, query, parsed, response_data, nb_results, orm_desc, start):
-        """Add timing, log the query, and return the response."""
+        """Add timing, explanation, log the query, and return the response."""
         processing_ms = int((time.time() - start) * 1000)
         response_data['processing_ms'] = processing_ms
+
+        # Include explanation if available
+        explanation = parsed.get('_explanation', '')
+        if explanation:
+            response_data['explanation'] = explanation.strip()
 
         # Log the query (non-blocking)
         try:
