@@ -41,6 +41,48 @@ const Stats = {
         }
     },
 
+    /**
+     * Load carbon stock stats directly from GeoJSON features (no API call needed).
+     * Shapes data into same format as updateSummary/updateCharts expect.
+     */
+    loadCarbone(geojsonData) {
+        if (!geojsonData || !geojsonData.features) return;
+
+        const features = geojsonData.features;
+        const byClass = {};
+
+        features.forEach(f => {
+            const p = f.properties;
+            const code = p.class_code || 'UNKNOWN';
+            if (!byClass[code]) {
+                byClass[code] = {
+                    nomenclature__libelle_fr: p.libelle || code,
+                    nomenclature__couleur_hex: p.couleur || '#228B22',
+                    total_superficie_ha: 0,
+                    total_carbone: 0,
+                    nombre_polygones: 0,
+                };
+            }
+            byClass[code].total_superficie_ha += (p.superficie_ha || 0);
+            byClass[code].total_carbone += (p.superficie_ha || 0) * (p.stock_tco2_ha || 0);
+            byClass[code].nombre_polygones += 1;
+        });
+
+        const resultats = Object.values(byClass);
+
+        // Update summary (reuses existing method)
+        this.updateSummary({
+            totaux: {
+                superficie_ha: resultats.reduce((s, r) => s + r.total_superficie_ha, 0),
+                carbone_tco2: resultats.reduce((s, r) => s + r.total_carbone, 0),
+            },
+            resultats: resultats,
+        });
+
+        // Update charts (reuses existing method)
+        this.updateCharts(resultats);
+    },
+
     updateCharts(resultats) {
         if (!resultats || resultats.length === 0) return;
 

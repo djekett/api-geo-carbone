@@ -528,6 +528,24 @@ class InfrastructureViewSet(viewsets.ReadOnlyModelViewSet):
 # ================================================================
 # Lightweight viewsets (no geometry optimization needed)
 # ================================================================
+# ================================================================
+# Stock Carbone — static GeoJSON from geocache (2023 data)
+# ================================================================
+def stock_carbone_geojson(request):
+    """
+    Serve the pre-built carbon stock spatialization GeoJSON (2023).
+    TIER 1 only: static file from geocache (no SQL fallback needed,
+    since data comes from external shapefile, not the database).
+    """
+    cached = _serve_cached('stock_carbone.json')
+    if cached:
+        return cached
+    return JsonResponse(
+        {'error': 'Stock carbone data not available. Run: manage.py import_stock_carbone'},
+        status=404,
+    )
+
+
 class NomenclatureCouvertViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = NomenclatureCouvert.objects.all()
     serializer_class = NomenclatureCouvertSerializer

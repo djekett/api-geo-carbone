@@ -14,6 +14,33 @@ const PopupBuilder = {
             </div>`;
     },
 
+    stockCarbone(props) {
+        const stock = props.stock_tco2_ha || 0;
+        const sup = props.superficie_ha || 0;
+        const totalCarbone = Math.round(stock * sup);
+        return `
+            <div class="popup-header" style="background:linear-gradient(135deg,#14532d,#166534);">
+                <i class="fas fa-leaf" style="margin-right:6px;opacity:0.7;"></i>Stock Carbone 2023
+            </div>
+            <div class="popup-body">
+                <div class="row"><span class="label">Classe</span><span class="value">${props.libelle || props.class_code || '-'}</span></div>
+                <div class="row"><span class="label">Ann\u00e9e</span><span class="value">${props.annee || '2023'}</span></div>
+                <div class="row">
+                    <span class="label">Stock carbone</span>
+                    <span class="value" style="color:#166534;font-weight:700;">
+                        ${stock ? stock.toLocaleString('fr') + ' tCO\u2082/ha' : '-'}
+                    </span>
+                </div>
+                <div class="row"><span class="label">Superficie</span><span class="value">${sup ? sup.toLocaleString('fr', {maximumFractionDigits: 1}) + ' ha' : '-'}</span></div>
+                <div class="row" style="border-top:2px solid #dcfce7;padding-top:6px;margin-top:2px;">
+                    <span class="label" style="font-weight:600;">Total carbone</span>
+                    <span class="value" style="color:#14532d;font-weight:800;font-size:13px;">
+                        ${totalCarbone > 0 ? totalCarbone.toLocaleString('fr') + ' tCO\u2082' : '-'}
+                    </span>
+                </div>
+            </div>`;
+    },
+
     foret(props) {
         return `
             <div class="popup-header">${props.nom || 'Foret classee'}</div>

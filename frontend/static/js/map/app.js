@@ -18,6 +18,10 @@
  *
  * 4. Separate map panes with z-index isolation
  *    - Occupation, forests, limits, infrastructure each in own pane
+ *
+ * 5. Carbon stock mode (CO2 button)
+ *    - Displays 2023 carbon stock spatialization from geocache
+ *    - Green gradient by forest class
  */
 const App = {
     map: null,
@@ -57,7 +61,10 @@ const App = {
         LayerManager.init(this.map);
         Sidebar.init();
         Legend.init();
-        TimeSlider.init((year) => this.onYearChange(year));
+        TimeSlider.init(
+            (year) => this.onYearChange(year),
+            (mode) => this.onModeChange(mode)
+        );
         ChatPanel.init(this.map);
         ReportGenerator.init();
 
@@ -104,7 +111,7 @@ const App = {
     },
 
     async loadInitialData() {
-        this.showLoading('Chargement des forêts classées...');
+        this.showLoading('Chargement des forets classees...');
 
         try {
             // 1. Forest boundaries — loaded ONCE, never cleared
@@ -131,7 +138,7 @@ const App = {
             }
             console.log('[App] Forets:', forets?.features?.length || 0);
 
-            // 2. Department boundaries — auto-loaded (with Oumé fallback)
+            // 2. Department boundaries — auto-loaded (with Oume fallback)
             this.showLoading('Chargement des limites administratives...');
             await LayerManager.loadOverlay('limites');
             const cbLimites = document.getElementById('layer-limites');
@@ -151,7 +158,7 @@ const App = {
         }
 
         this.hideLoading();
-        console.log('[App] ✓ Ready');
+        console.log('[App] Ready');
 
         // 5. BACKGROUND PRELOAD: fetch all 3 years into memory
         //    After this, year switching is instant (< 5ms)
@@ -159,15 +166,20 @@ const App = {
     },
 
     /**
-     * Background preload all years into browser memory cache.
-     * Backend serves static files → fast parallel download.
-     * After preload, year switching = pure memory read.
+     * Background preload all years + carbon stock into browser memory cache.
+     * Backend serves static files -> fast parallel download.
+     * After preload, year switching AND carbon toggle = pure memory read.
      */
     async _backgroundPreload() {
         if (this._preloaded) return;
         try {
-            await API.preloadAllYears(this.currentForet);
+            // Preload all 3 years + carbon stock in parallel
+            await Promise.all([
+                API.preloadAllYears(this.currentForet),
+                API.getStockCarbone(),  // preload carbon too
+            ]);
             this._preloaded = true;
+            console.log('[App] Preload complete (years + carbon stock)');
         } catch (err) {
             console.warn('[App] Preload (non-critical):', err);
         }
@@ -183,7 +195,7 @@ const App = {
             // Safety timeout: hide loading after 30s even if data hasn't arrived
             const timeoutId = setTimeout(() => {
                 this.hideLoading();
-                console.warn('[App] Occupation timeout (30s) — data may still arrive');
+                console.warn('[App] Occupation timeout (30s) -- data may still arrive');
             }, 30000);
 
             const data = await API.getOccupations(params);
@@ -192,10 +204,10 @@ const App = {
 
             if (data?.features?.length > 0) {
                 Choropleth.renderOccupation(data, LayerManager.overlays.occupation, this.map);
-                console.log(`[App] Occupation ${this.currentYear}: ${data.features.length} polygones (${dt}ms)`);
+                console.log('[App] Occupation ' + this.currentYear + ': ' + data.features.length + ' polygones (' + dt + 'ms)');
             } else {
                 LayerManager.overlays.occupation.clearLayers();
-                console.warn(`[App] Occupation ${this.currentYear}: empty (${dt}ms)`);
+                console.warn('[App] Occupation ' + this.currentYear + ': empty (' + dt + 'ms)');
             }
         } catch (err) {
             console.error('[App] Occupation error:', err);
@@ -217,6 +229,55 @@ const App = {
             }
             Stats.load(year, this.currentForet);
         }, 100);
+    },
+
+    /**
+     * Mode change handler — switches between temporal (year) and carbon stock.
+     * Each mode has its own rendering pipeline:
+     *   - temporal: occupation polygons + nomenclature legend + API stats
+     *   - carbone:  carbon stock polygons + green gradient legend + client-side stats
+     */
+    async onModeChange(mode) {
+        if (mode === 'carbone') {
+            await this.loadStockCarbone();
+        } else {
+            // Return to temporal mode: reload current year's occupation
+            this.showLoading('Chargement occupation ' + this.currentYear + '...');
+            try {
+                await this.loadOccupation();
+                Stats.load(this.currentYear, this.currentForet);
+                Legend.render(); // restore nomenclature legend
+            } catch (err) {
+                console.error('[App] Mode switch error:', err);
+            }
+            this.hideLoading();
+        }
+    },
+
+    /**
+     * Load and display carbon stock spatialization (2023 data).
+     * Uses same layer group as occupation (double-buffer swap).
+     */
+    async loadStockCarbone() {
+        this.showLoading('Chargement du stock carbone 2023...');
+        try {
+            const t0 = performance.now();
+            const data = await API.getStockCarbone();
+            const dt = Math.round(performance.now() - t0);
+
+            if (data?.features?.length > 0) {
+                Choropleth.renderStockCarbone(data, LayerManager.overlays.occupation, this.map);
+                Stats.loadCarbone(data);
+                Legend.renderCarbone(data);
+                console.log('[App] Stock carbone: ' + data.features.length + ' classes (' + dt + 'ms)');
+            } else {
+                LayerManager.overlays.occupation.clearLayers();
+                console.warn('[App] Stock carbone: empty (' + dt + 'ms)');
+            }
+        } catch (err) {
+            console.error('[App] Stock carbone error:', err);
+        }
+        this.hideLoading();
     },
 };
 

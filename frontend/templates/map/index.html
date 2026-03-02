@@ -147,14 +147,23 @@
     <div id="map" class="w-full h-full"></div>
 
     <!-- ===== TIME SLIDER ===== -->
-    <div id="time-slider" class="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] bg-white/95 backdrop-blur-md shadow-2xl rounded-2xl px-5 py-3 flex items-center gap-3 border border-gray-200/50">
-        <button id="time-play" class="w-9 h-9 rounded-xl bg-forest-100 text-forest-700 hover:bg-forest-200 flex items-center justify-center transition-colors"><i class="fas fa-play text-sm"></i></button>
-        <div class="flex items-center rounded-xl overflow-hidden border border-gray-200">
+    <div id="time-slider" class="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] bg-white/95 backdrop-blur-md shadow-2xl rounded-2xl px-5 py-3 flex items-center gap-3 border border-gray-200/50 transition-all duration-300">
+        <!-- Play/Pause button -->
+        <button id="time-play" class="w-9 h-9 rounded-xl bg-forest-100 text-forest-700 hover:bg-forest-200 flex items-center justify-center transition-all duration-200"><i class="fas fa-play text-sm"></i></button>
+        <!-- Year buttons group -->
+        <div class="flex items-center rounded-xl overflow-hidden border border-gray-200 transition-all duration-300">
             <button class="time-btn px-5 py-2 text-sm font-bold" data-year="1986">1986</button>
             <button class="time-btn px-5 py-2 text-sm font-bold" data-year="2003">2003</button>
             <button class="time-btn px-5 py-2 text-sm font-bold" data-year="2023">2023</button>
         </div>
-        <span id="time-label" class="text-xs text-gray-400 font-medium min-w-[55px]">1986</span>
+        <!-- Separator -->
+        <div class="w-px h-8 bg-gray-300 transition-colors duration-300"></div>
+        <!-- CO2 Stock Carbone button -->
+        <button id="btn-stock-carbone" class="carbone-btn px-4 py-2 text-sm font-bold rounded-xl transition-all duration-300" title="Spatialisation du Stock Carbone 2023 (tCO2/ha)">
+            <i class="fas fa-leaf mr-1.5 text-xs"></i>CO<sub>2</sub>
+        </button>
+        <!-- Current mode label -->
+        <span id="time-label" class="text-xs text-gray-400 font-medium min-w-[55px] transition-all duration-300">1986</span>
     </div>
 
     <!-- Nav (top-right) -->

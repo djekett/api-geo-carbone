@@ -124,6 +124,7 @@ const API = {
     getZonesEtude(params)      { return this.get('/zones-etude/', params); },
     getNomenclatures()         { return this.get('/nomenclatures/'); },
     queryAI(query)             { return this.post('/ai/query/', { query }); },
+    getStockCarbone()          { return this.get('/stock-carbone/', null, { useCache: true, abortKey: 'carbone' }); },
 
     /**
      * Preload occupation data for all years into browser memory.

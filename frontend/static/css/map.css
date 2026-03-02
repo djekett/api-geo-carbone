@@ -55,6 +55,19 @@
     border: 1px solid #22c55e;
 }
 
+/* Carbon stock tooltip — dark green theme for CO2 mode */
+.carbone-tooltip {
+    font-weight: 600;
+    color: #ffffff !important;
+    background: rgba(20,83,45,0.92) !important;
+    border: 1px solid rgba(34,197,94,0.5) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+    font-size: 11px;
+}
+.carbone-tooltip::before {
+    border-top-color: rgba(20,83,45,0.92) !important;
+}
+
 /* Popup */
 .leaflet-popup-content-wrapper {
     border-radius: 14px !important;

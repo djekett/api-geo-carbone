@@ -97,6 +97,57 @@ const Choropleth = {
         this._foretsLayer.addTo(layerGroup);
     },
 
+    /**
+     * Render carbon stock spatialization (2023) — 4 polygon classes with green gradient.
+     * Uses the same double-buffering pattern as renderOccupation.
+     *
+     * Visual differences from occupation mode:
+     * - Higher fill opacity (0.75) for emphasis on carbon stock density
+     * - Darker border color (#0a2e0a) for contrast
+     * - Slightly thicker borders (0.6px) for class boundaries
+     */
+    renderStockCarbone(geojsonData, layerGroup, map) {
+        if (!geojsonData || !geojsonData.features || !geojsonData.features.length) {
+            layerGroup.clearLayers();
+            this._occupationLayer = null;
+            return;
+        }
+
+        const newLayer = L.geoJSON(geojsonData, {
+            pane: 'occupationPane',
+            style: (feature) => ({
+                fillColor: feature.properties.couleur || '#228B22',
+                weight: 0.6,
+                opacity: 0.85,
+                color: '#0a2e0a',
+                fillOpacity: 0.75,
+            }),
+            onEachFeature: (feature, layer) => {
+                const props = feature.properties;
+                layer.bindPopup(() => PopupBuilder.stockCarbone(props));
+                // Tooltip with class name for quick identification
+                layer.bindTooltip(
+                    (props.libelle || props.class_code || '') + ' — ' + (props.stock_tco2_ha || 0).toLocaleString('fr') + ' tCO2/ha',
+                    { sticky: true, direction: 'top', className: 'carbone-tooltip' }
+                );
+            },
+            bubblingMouseEvents: false,
+        });
+
+        // Double-buffer swap (same as renderOccupation)
+        const oldLayer = this._occupationLayer;
+        newLayer.addTo(layerGroup);
+        this._occupationLayer = newLayer;
+
+        if (oldLayer) {
+            requestAnimationFrame(() => {
+                layerGroup.removeLayer(oldLayer);
+            });
+        }
+
+        return newLayer;
+    },
+
     renderAIResults(geojsonData, map) {
         if (this.aiLayer) map.removeLayer(this.aiLayer);
         if (!geojsonData || !geojsonData.features || !geojsonData.features.length) return;

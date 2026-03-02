@@ -179,3 +179,21 @@ FORETS_DATA = {
 }
 
 SUPERFICIE_TOTALE_HA = 81056
+
+# ======= Spatialisation Stock Carbone (gradient vert) =======
+# Couleurs ordonnées par stock décroissant : plus foncé = plus de carbone
+
+STOCK_CARBONE_COLORS = {
+    'FORET_CLAIRE':   '#003300',  # 3307.62 tCO2/ha — vert le plus foncé
+    'FORET_DENSE':    '#004d00',  # 3186.70 tCO2/ha
+    'JACHERE':        '#006600',  # 2906.42 tCO2/ha
+    'FORET_DEGRADEE': '#339933',  # 1947.15 tCO2/ha — vert le plus clair
+}
+
+# Mapping Class_Id du shapefile data_carb.shp → code nomenclature
+STOCK_CARBONE_CLASS_MAP = {
+    1: 'FORET_DENSE',
+    2: 'FORET_CLAIRE',
+    3: 'FORET_DEGRADEE',
+    4: 'JACHERE',
+}

@@ -20,13 +20,65 @@ body { font-family:'DM Sans',system-ui,sans-serif; }
     cursor: pointer;
     border: none;
     font-family: 'DM Sans', sans-serif;
-    transition: all 0.2s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
 }
-.time-btn:hover { background: #e5e7eb; color: #374151; }
+.time-btn:hover:not(.disabled) { background: #e5e7eb; color: #374151; }
 .time-btn.active {
     background: #15803d !important;
     color: #ffffff !important;
     box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2), 0 2px 8px rgba(21,128,61,0.3);
+}
+.time-btn.disabled {
+    opacity: 0.35;
+    pointer-events: none;
+    cursor: not-allowed;
+    filter: grayscale(0.3);
+    transition: all 0.3s ease;
+}
+
+/* --- Carbon Stock Button --- */
+.carbone-btn {
+    background: #f0fdf4;
+    color: #166534;
+    cursor: pointer;
+    border: 1px solid #bbf7d0;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+.carbone-btn:hover {
+    background: #dcfce7;
+    color: #14532d;
+    border-color: #86efac;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(20,83,45,0.15);
+}
+.carbone-btn.active {
+    background: linear-gradient(135deg, #14532d, #166534) !important;
+    color: #ffffff !important;
+    border-color: #14532d !important;
+    box-shadow: 0 2px 12px rgba(20,83,45,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+    transform: translateY(0);
+}
+.carbone-btn.active::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    border: 2px solid rgba(34,197,94,0.4);
+    animation: carbone-pulse 2s ease-in-out infinite;
+    pointer-events: none;
+}
+@keyframes carbone-pulse {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50%      { opacity: 0.8; transform: scale(1.02); }
+}
+
+/* --- Time Slider Container Glow in Carbon Mode --- */
+.carbone-active-glow {
+    border-color: rgba(34,197,94,0.3) !important;
+    box-shadow: 0 4px 24px rgba(20,83,45,0.15), 0 0 0 1px rgba(34,197,94,0.2) !important;
 }
 
 /* --- Sidebar Tabs --- */
@@ -145,6 +197,10 @@ body { font-family:'DM Sans',system-ui,sans-serif; }
     #time-slider #time-play {
         width: 32px;
         height: 32px;
+    }
+    #time-slider .carbone-btn {
+        padding: 6px 10px;
+        font-size: 12px;
     }
 
     /* Chat messages wider on mobile */
