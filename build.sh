@@ -41,18 +41,33 @@ python manage.py seed_nomenclature 2>/dev/null || echo "Nomenclature: skipped or
 python manage.py prebuild_geojson 2>/dev/null || echo "GeoCache prebuild: skipped (no data in DB yet)"
 
 # ===== Auto-creation superuser depuis variables d'environnement =====
+# Wrapped with retry logic: Render free-tier DB may drop connections during build
 python -c "
-import django, os
+import django, os, time
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production')
 django.setup()
 from django.contrib.auth import get_user_model
+from django.db import connection
+
 User = get_user_model()
 username = os.environ.get('DJANGO_SUPERUSER_USERNAME', 'admin')
 email = os.environ.get('DJANGO_SUPERUSER_EMAIL', 'admin@admin.com')
 password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
-if password and not User.objects.filter(username=username).exists():
-    User.objects.create_superuser(username=username, email=email, password=password)
-    print(f'Superuser {username} created.')
-else:
-    print('Superuser already exists or no password set.')
+
+for attempt in range(5):
+    try:
+        connection.ensure_connection()
+        if password and not User.objects.filter(username=username).exists():
+            User.objects.create_superuser(username=username, email=email, password=password)
+            print(f'Superuser {username} created.')
+        else:
+            print('Superuser already exists or no password set.')
+        break
+    except Exception as e:
+        print(f'DB not ready (attempt {attempt+1}/5): {e}')
+        if attempt < 4:
+            connection.close()
+            time.sleep(5)
+        else:
+            print('Skipping superuser creation (DB unavailable). Will retry on next deploy.')
 "
