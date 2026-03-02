@@ -1,20 +1,25 @@
 """
-AI Query View — Chat-to-Map v3.0
+AI Query View -- Chat-to-Map v4.0 "Extraordinaire"
 
-Nouveautes:
-- Intent stock_carbone → active le mode CO2 sur la carte
-- Intent resume → synthese globale (par type + par foret)
-- Compare auto-default 1986 vs 2023 si annees manquantes
-- Heritage de contexte etendu (cover_types aussi)
-- Limite de features geojson communiquee au frontend
-- Explication du parsing renvoyee dans la reponse
+Nouveautes v4:
+- chart_data : donnees pre-formatees pour Chart.js (labels, datasets, colors)
+- coordinates : centre geographique des forets pour fly-to map
+- fun_fact : fait ecologique aleatoire contextuel
+- suggestions : 3-4 suggestions de suivi intelligentes
+- confidence : score 0-100 de certitude du parsing
 """
 import time
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from .nlp_engine import NLPEngine
+from .nlp_engine import (
+    NLPEngine,
+    FOREST_CENTERS,
+    get_fun_fact,
+    get_suggestions,
+    compute_confidence,
+)
 from .models import RequeteNLP
 from apps.carbone.serializers import OccupationSolSerializer
 
@@ -25,12 +30,6 @@ class AIQueryView(APIView):
 
     POST /api/v1/ai/query/
     Body: {"query": "texte en francais"}
-
-    Retourne un JSON avec:
-    - type: help | geojson | stats | comparison | deforestation |
-            ranking | resume | stock_carbone | no_results
-    - parsed: entites extraites
-    - data: donnees selon le type
     """
 
     GEOJSON_LIMIT = 200
@@ -42,7 +41,6 @@ class AIQueryView(APIView):
                 {'error': 'Le champ "query" est requis.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        # Limit query length
         if len(query) > 500:
             query = query[:500]
 
@@ -52,25 +50,20 @@ class AIQueryView(APIView):
 
         # ----------------------------------------------------------
         # Session-based conversational context
-        # Inherit missing entities from the previous query
         # ----------------------------------------------------------
         session_context = request.session.get('nlp_context', {})
 
         if parsed['intent'] != 'help':
-            # Inherit forests
             if not parsed['forests'] and session_context.get('forests'):
                 parsed['forests'] = session_context['forests']
                 parsed['_inherited'] = parsed.get('_inherited', []) + ['forests']
-            # Inherit years
             if not parsed['years'] and session_context.get('years'):
                 parsed['years'] = session_context['years']
                 parsed['_inherited'] = parsed.get('_inherited', []) + ['years']
-            # Inherit cover types (new in v3)
             if not parsed['cover_types'] and session_context.get('cover_types'):
                 parsed['cover_types'] = session_context['cover_types']
                 parsed['_inherited'] = parsed.get('_inherited', []) + ['cover_types']
 
-            # Save current context for next query
             request.session['nlp_context'] = {
                 'forests': parsed['forests'],
                 'cover_types': parsed['cover_types'],
@@ -84,7 +77,7 @@ class AIQueryView(APIView):
         # Handle intents
         # ----------------------------------------------------------
 
-        # HELP intent
+        # HELP
         if parsed['intent'] == 'help':
             response_data = {
                 'type': 'help',
@@ -121,7 +114,7 @@ class AIQueryView(APIView):
             orm_desc = 'help'
             return self._finalize(request, query, parsed, response_data, nb_results, orm_desc, start)
 
-        # STOCK CARBONE intent → tells frontend to activate CO2 mode
+        # STOCK CARBONE
         if parsed['intent'] == 'stock_carbone':
             response_data = {
                 'type': 'stock_carbone',
@@ -138,30 +131,36 @@ class AIQueryView(APIView):
             orm_desc = 'stock_carbone'
             return self._finalize(request, query, parsed, response_data, 4, orm_desc, start)
 
-        # RESUME intent → full overview
+        # RESUME
         if parsed['intent'] == 'resume':
             resume = engine.build_resume(parsed)
             nb_results = len(resume.get('par_type', []))
+            # Build chart data for resume
+            chart_data = self._build_chart_data(resume.get('par_type', []))
             response_data = {
                 'type': 'resume',
                 'parsed': parsed,
                 'data': resume,
+                'chart_data': chart_data,
             }
             orm_desc = f"resume {resume.get('annee', '?')}"
             return self._finalize(request, query, parsed, response_data, nb_results, orm_desc, start)
 
-        # COMPARE intent
+        # COMPARE
         if parsed['intent'] == 'compare' and len(parsed['years']) >= 2:
             comparison = engine.build_comparison(parsed)
+            # Build comparison chart data
+            chart_data = self._build_comparison_chart(comparison) if comparison else None
             response_data = {
                 'type': 'comparison',
                 'parsed': parsed,
                 'data': comparison,
+                'chart_data': chart_data,
             }
             orm_desc = f"compare {parsed['years']}"
             return self._finalize(request, query, parsed, response_data, nb_results, orm_desc, start)
 
-        # DEFORESTATION intent
+        # DEFORESTATION
         if parsed['intent'] == 'deforestation' and len(parsed['years']) >= 2:
             deforestation = engine.build_deforestation(parsed)
             response_data = {
@@ -172,21 +171,23 @@ class AIQueryView(APIView):
             orm_desc = f"deforestation {parsed['years']}"
             return self._finalize(request, query, parsed, response_data, nb_results, orm_desc, start)
 
-        # STATS / CARBON intent
+        # STATS / CARBON
         if parsed['intent'] in ('stats', 'carbon'):
             stats = list(engine.build_stats(parsed))
             nb_results = len(stats)
             if nb_results == 0:
                 return self._no_results(request, query, parsed, engine, start)
+            chart_data = self._build_chart_data(stats)
             response_data = {
                 'type': 'stats',
                 'parsed': parsed,
                 'data': stats,
+                'chart_data': chart_data,
             }
             orm_desc = f"stats {nb_results} types"
             return self._finalize(request, query, parsed, response_data, nb_results, orm_desc, start)
 
-        # RANKING intent
+        # RANKING
         if parsed['intent'] == 'ranking':
             ranking = engine.build_ranking(parsed)
             nb_results = len(ranking)
@@ -199,7 +200,7 @@ class AIQueryView(APIView):
             orm_desc = f"ranking {nb_results} forets"
             return self._finalize(request, query, parsed, response_data, nb_results, orm_desc, start)
 
-        # DEFAULT: SHOW intent → return GeoJSON features
+        # DEFAULT: SHOW -> return GeoJSON features
         qs = engine.build_queryset(parsed)
         count = qs.count()
 
@@ -222,6 +223,61 @@ class AIQueryView(APIView):
         return self._finalize(request, query, parsed, response_data, nb_results, orm_desc, start)
 
     # ----------------------------------------------------------
+    # Chart data builders
+    # ----------------------------------------------------------
+    def _build_chart_data(self, stats_list):
+        """Pre-format stats for Chart.js doughnut/bar."""
+        if not stats_list:
+            return None
+        labels = []
+        superficie_values = []
+        carbone_values = []
+        colors = []
+        for s in stats_list:
+            label = s.get('nomenclature__libelle_fr') or s.get('nomenclature__code', '?')
+            labels.append(label)
+            superficie_values.append(round(float(s.get('total_superficie_ha', 0)), 1))
+            carbone_values.append(round(float(s.get('total_carbone', 0)), 1))
+            colors.append(s.get('nomenclature__couleur_hex', '#999'))
+        return {
+            'labels': labels,
+            'colors': colors,
+            'superficie': superficie_values,
+            'carbone': carbone_values,
+        }
+
+    def _build_comparison_chart(self, comparison):
+        """Pre-format comparison for Chart.js."""
+        if not comparison:
+            return None
+        a1 = comparison.get('annee1', {})
+        a2 = comparison.get('annee2', {})
+        labels = []
+        values1 = []
+        values2 = []
+        colors = []
+        for s in (a1.get('data') or []):
+            code = s.get('nomenclature__code', '')
+            labels.append(s.get('nomenclature__libelle_fr', code))
+            values1.append(round(float(s.get('superficie_ha', 0)), 1))
+            colors.append(s.get('nomenclature__couleur_hex', '#999'))
+        # Map year 2 by code
+        map2 = {}
+        for s in (a2.get('data') or []):
+            map2[s.get('nomenclature__code', '')] = round(float(s.get('superficie_ha', 0)), 1)
+        for s in (a1.get('data') or []):
+            code = s.get('nomenclature__code', '')
+            values2.append(map2.get(code, 0))
+        return {
+            'labels': labels,
+            'colors': colors,
+            'annee1': a1.get('annee'),
+            'values1': values1,
+            'annee2': a2.get('annee'),
+            'values2': values2,
+        }
+
+    # ----------------------------------------------------------
     # Helpers
     # ----------------------------------------------------------
     def _no_results(self, request, query, parsed, engine, start):
@@ -236,16 +292,40 @@ class AIQueryView(APIView):
         return self._finalize(request, query, parsed, response_data, 0, 'no_results', start)
 
     def _finalize(self, request, query, parsed, response_data, nb_results, orm_desc, start):
-        """Add timing, explanation, log the query, and return the response."""
+        """Add timing, enrichments, log the query, and return the response."""
         processing_ms = int((time.time() - start) * 1000)
         response_data['processing_ms'] = processing_ms
 
-        # Include explanation if available
+        # Explanation
         explanation = parsed.get('_explanation', '')
         if explanation:
             response_data['explanation'] = explanation.strip()
 
-        # Log the query (non-blocking)
+        # ── v4 enrichments ──
+        # Confidence score
+        response_data['confidence'] = compute_confidence(parsed)
+
+        # Fun fact
+        response_data['fun_fact'] = get_fun_fact(
+            parsed.get('intent', 'general'),
+            parsed.get('cover_types', []),
+        )
+
+        # Smart suggestions
+        session_ctx = request.session.get('nlp_context', {})
+        response_data['suggestions'] = get_suggestions(parsed, session_ctx)
+
+        # Coordinates for fly-to (centers of mentioned forests)
+        forests = parsed.get('forests', [])
+        if forests:
+            coords = []
+            for f in forests:
+                if f in FOREST_CENTERS:
+                    coords.append({'code': f, 'center': FOREST_CENTERS[f]})
+            if coords:
+                response_data['coordinates'] = coords
+
+        # Log (non-blocking)
         try:
             RequeteNLP.objects.create(
                 texte_requete=query,
@@ -255,6 +335,6 @@ class AIQueryView(APIView):
                 temps_traitement_ms=processing_ms,
             )
         except Exception:
-            pass  # Ne pas bloquer la reponse si le log echoue
+            pass
 
         return Response(response_data)
