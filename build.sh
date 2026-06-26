@@ -57,10 +57,26 @@ python manage.py migrate --no-input
 # Collecter les fichiers statiques
 python manage.py collectstatic --no-input
 
-# Pre-construire le cache GeoJSON si des donnees existent en base
-# (les fichiers media/geocache/ du repo sont aussi deployes comme fallback)
+# Seed de la nomenclature (idempotent)
 python manage.py seed_nomenclature 2>/dev/null || echo "Nomenclature: skipped or already seeded"
-python manage.py prebuild_geojson 2>/dev/null || echo "GeoCache prebuild: skipped (no data in DB yet)"
+
+# Pre-construire le cache GeoJSON UNIQUEMENT si la base contient des donnees.
+# Sinon on ECRASERAIT les fichiers media/geocache/*.json commites (qui portent
+# les vraies donnees d'occupation) avec des FeatureCollections vides -> carte vide.
+OCC_COUNT=$(python -c "
+import django, os
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production')
+django.setup()
+from apps.carbone.models import OccupationSol
+print(OccupationSol.objects.count())
+" 2>/dev/null || echo 0)
+
+if [ "${OCC_COUNT:-0}" -gt 0 ]; then
+    echo "Base: ${OCC_COUNT} occupations -> reconstruction du cache GeoJSON"
+    python manage.py prebuild_geojson 2>/dev/null || echo "GeoCache prebuild: echec (ignore)"
+else
+    echo "Base vide -> cache GeoJSON commite conserve (media/geocache/*.json)"
+fi
 
 # ===== Auto-creation superuser depuis variables d'environnement =====
 # Wrapped with retry logic: Render free-tier DB may drop connections during build
