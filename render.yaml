@@ -1,13 +1,11 @@
 # ===== API.GEO.Carbone — Render Blueprint =====
 # Déployer via : https://render.com/deploy
-
-databases:
-  - name: api-geo-carbone-db
-    plan: free
-    databaseName: api_geo_carbone
-    postgresMajorVersion: "16"
-    ipAllowList: []
-    # PostGIS sera activé via la migration Django ou manuellement
+#
+# Base de données : EXTERNE (Neon — https://neon.tech), Postgres + PostGIS
+# qui n'expire pas (contrairement au free-tier Render supprimé à 90 jours).
+# DATABASE_URL doit être défini MANUELLEMENT dans le dashboard Render
+# (Service > Environment) avec l'URL de connexion Neon
+# (format: postgresql://USER:PASS@HOST/DB?sslmode=require).
 
 services:
   - type: web
@@ -23,10 +21,9 @@ services:
         generateValue: true
       - key: PYTHON_VERSION
         value: "3.11.6"
+      # Défini manuellement dans le dashboard (URL Neon) — non géré par le blueprint
       - key: DATABASE_URL
-        fromDatabase:
-          name: api-geo-carbone-db
-          property: connectionString
+        sync: false
       - key: ALLOWED_HOSTS
         value: ".onrender.com,api-geo-carbone.com,www.api-geo-carbone.com"
       - key: CORS_ALLOWED_ORIGINS

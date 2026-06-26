@@ -17,13 +17,16 @@ if RENDER_EXTERNAL_HOSTNAME:
 ALLOWED_HOSTS += ['api-geo-carbone.com', 'www.api-geo-carbone.com']
 
 # ──────────────────────────────────────────────
-# Database — Render PostgreSQL (PostGIS)
+# Database — Postgres externe (Neon) + PostGIS
+# DATABASE_URL est fourni via l'environnement (dashboard Render).
+# ssl_require=True : Neon (et tout Postgres managé) impose le SSL.
 # ──────────────────────────────────────────────
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
     DATABASES['default'] = dj_database_url.config(
         default=DATABASE_URL,
         conn_max_age=600,
+        ssl_require=True,
         engine='django.contrib.gis.db.backends.postgis',
     )
 

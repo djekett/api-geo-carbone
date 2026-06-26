@@ -31,6 +31,7 @@ for attempt in range(12):  # ~2 min max (12 x 10s)
         conn = psycopg2.connect(
             dbname=db['NAME'], user=db['USER'], password=db['PASSWORD'],
             host=db['HOST'], port=db['PORT'], connect_timeout=10,
+            sslmode='require',  # Neon (et Postgres managé) imposent le SSL
         )
         conn.autocommit = True
         conn.cursor().execute('CREATE EXTENSION IF NOT EXISTS postgis;')
