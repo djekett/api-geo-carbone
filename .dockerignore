@@ -1,0 +1,29 @@
+# Environnements Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Secrets & config locale
+.env
+.env.*
+
+# Git / CI / éditeurs
+.git/
+.github/
+.gitignore
+.claude/
+.vscode/
+.idea/
+
+# Statique régénéré au build (collectstatic)
+staticfiles/
+
+# Uploads utilisateurs (on garde media/geocache/, indispensable)
+media/imports/
+
+# Divers
+*.sqlite3
+node_modules/
+nul_

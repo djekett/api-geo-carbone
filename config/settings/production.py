@@ -8,11 +8,16 @@ from .base import *
 
 DEBUG = False
 
-# Render fournit l'URL du service via RENDER_EXTERNAL_HOSTNAME
+# Render fournit RENDER_EXTERNAL_HOSTNAME ; Railway fournit RAILWAY_PUBLIC_DOMAIN.
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
+RAILWAY_PUBLIC_DOMAIN = os.environ.get('RAILWAY_PUBLIC_DOMAIN')
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', '').split(',') if h.strip()]
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+if RAILWAY_PUBLIC_DOMAIN:
+    ALLOWED_HOSTS.append(RAILWAY_PUBLIC_DOMAIN)
+# Tout sous-domaine Railway (filet de sécurité si la variable n'est pas fournie)
+ALLOWED_HOSTS.append('.up.railway.app')
 # Domaines personnalisés toujours autorisés (filet de sécurité)
 ALLOWED_HOSTS += ['api-geo-carbone.com', 'www.api-geo-carbone.com']
 
@@ -60,6 +65,8 @@ _cors_raw = os.environ.get('CORS_ALLOWED_ORIGINS', '')
 CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_raw.split(',') if o.strip()]
 if RENDER_EXTERNAL_HOSTNAME:
     CORS_ALLOWED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
+if RAILWAY_PUBLIC_DOMAIN:
+    CORS_ALLOWED_ORIGINS.append(f'https://{RAILWAY_PUBLIC_DOMAIN}')
 # Custom domain
 CORS_ALLOWED_ORIGINS += [
     'https://api-geo-carbone.com',
@@ -75,6 +82,10 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 if RENDER_EXTERNAL_HOSTNAME:
     CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
+if RAILWAY_PUBLIC_DOMAIN:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{RAILWAY_PUBLIC_DOMAIN}')
+# Filet de sécurité : tout sous-domaine Railway
+CSRF_TRUSTED_ORIGINS.append('https://*.up.railway.app')
 extra_csrf = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
 if extra_csrf:
     CSRF_TRUSTED_ORIGINS.extend(extra_csrf.split(','))
