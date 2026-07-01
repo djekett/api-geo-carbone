@@ -2,6 +2,29 @@
 # ===== Démarrage du conteneur (la base Neon est joignable à ce moment) =====
 set -o errexit
 
+# Ce conteneur est l'image de PRODUCTION : on force les settings production
+# pour qu'une variable Railway mal réglée ne fasse pas basculer en mode dev
+# (qui pointerait vers localhost et planterait).
+export DJANGO_SETTINGS_MODULE=config.settings.production
+
+# ── Auto-diagnostic de configuration (évite les 200 lignes de traceback) ──
+echo "================ CONFIG ================"
+echo ">> DJANGO_SETTINGS_MODULE = ${DJANGO_SETTINGS_MODULE:-<non défini>}"
+if [ -z "${DATABASE_URL:-}" ]; then
+    echo ""
+    echo "❌ ERREUR : la variable DATABASE_URL n'est PAS définie."
+    echo "   L'application tenterait de se connecter à localhost (inexistant ici)."
+    echo "   -> Railway > onglet Variables : ajoutez DATABASE_URL (URL Neon complète,"
+    echo "      avec ?sslmode=require&channel_binding=require), cliquez APPLIQUER, puis"
+    echo "      redéployez. Vérifiez aussi DJANGO_SETTINGS_MODULE=config.settings.production."
+    echo "======================================="
+    exit 1
+fi
+# N'affiche que l'hôte (jamais le mot de passe) pour confirmer la cible.
+DB_HOST_ONLY="$(printf '%s' "$DATABASE_URL" | sed -E 's#.*@([^/?]+).*#\1#')"
+echo ">> DATABASE_URL détecté -> hôte : ${DB_HOST_ONLY}"
+echo "======================================="
+
 echo ">> Migrations..."
 python manage.py migrate --no-input
 
